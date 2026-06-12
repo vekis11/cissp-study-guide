@@ -29,7 +29,9 @@ def test_manager_feedback_shape():
     )
     fb = build_manager_feedback(q)
     assert fb["manager_brief"]
-    assert len(fb["approach_tips"]) >= 3
+    assert 1 <= len(fb["approach_tips"]) <= 2
+    assert len(fb["wrong_choice_notes"]) == 3
+    assert all(n["choice"] != "B" for n in fb["wrong_choice_notes"])
 
 
 def test_cat_2024_constants():

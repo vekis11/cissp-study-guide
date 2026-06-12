@@ -97,12 +97,19 @@ export interface SubmitResult {
   pass_threshold_scaled: number;
 }
 
+export interface WrongChoiceNote {
+  choice: string;
+  text: string;
+  why_wrong: string;
+}
+
 export interface AnswerResult {
   is_correct: boolean;
   correct_choice: string;
   explanation: string;
   manager_brief?: string;
   approach_tips?: string[];
+  wrong_choice_notes?: WrongChoiceNote[];
   score_percent: number;
   session_complete: boolean;
 }
@@ -147,6 +154,7 @@ export interface ReviewItem {
   explanation: string;
   manager_brief?: string;
   approach_tips?: string[];
+  wrong_choice_notes?: WrongChoiceNote[];
   flagged: boolean;
 }
 

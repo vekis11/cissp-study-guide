@@ -18,74 +18,53 @@ _ACTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("PRIMARY", re.compile(r"\bPRIMARY\b|\bPRIORITY\b|\bGREATEST\b", re.I)),
 ]
 
-_ACTION_TIPS: dict[str, list[str]] = {
-    "FIRST": [
-        "FIRST means one step — pick assessment, plan activation, or governance before technical fixes.",
-        "Eliminate answers that jump to tools, termination, or blanket mandates before understanding the problem.",
-        "Ask: what must leadership know or approve before anyone changes production?",
-    ],
-    "BEST": [
-        "BEST favors sustainable governance: policy alignment, risk reduction, and business continuity together.",
-        "Reject the fastest technical shortcut if it ignores legal, contractual, or organizational accountability.",
-        "The best answer usually scales across the enterprise, not only the loudest incident.",
-    ],
-    "LEAST": [
-        "LEAST = the worst managerial choice — often unethical, out-of-sequence, or reckless.",
-        "Strong distractors may look responsible; the LEAST option usually violates due care or proper sequence.",
-        "If three answers reflect good practice, the LEAST is the one that breaks governance or law.",
-    ],
-    "NEXT": [
-        "NEXT assumes an earlier step already happened — do not repeat discovery or triage.",
-        "Read the vignette for clues about what was already completed (assessment, approval, containment).",
-        "Choose the logical follow-on action, not the first step in the playbook.",
-    ],
-    "PRIMARY": [
-        "PRIMARY / GREATEST / PRIORITY questions target the highest organizational concern.",
-        "Rank people, law, governance, and reputation above convenience or single-tool fixes.",
-        "Address root cause and accountability, not only the symptom visible to users.",
-    ],
+_ACTION_TIPS: dict[str, str] = {
+    "FIRST": "FIRST = assess or govern before any technical fix.",
+    "BEST": "BEST = sustainable governance and risk reduction, not the fastest shortcut.",
+    "LEAST": "LEAST = pick the worst managerial choice (ethics, sequence, or due care).",
+    "NEXT": "NEXT = follow-on step only; don't repeat triage or discovery.",
+    "PRIMARY": "PRIMARY = people, law, and governance over tools or symptoms.",
 }
 
-_DOMAIN_TIPS: dict[int, list[str]] = {
-    1: [
-        "Domain 1: tie decisions to risk appetite, policy hierarchy, and business objectives.",
-        "Prefer documented governance (policy → standard → procedure) over ad hoc executive requests.",
-    ],
-    2: [
-        "Domain 2: classify data first, then match handling, retention, and destruction to sensitivity.",
-        "Managers own classification and custody — technicians implement controls you select.",
-    ],
-    3: [
-        "Domain 3: defense in depth and secure design beat single-point technical silver bullets.",
-        "Cryptography and architecture answers must match the stated business and compliance need.",
-    ],
-    4: [
-        "Domain 4: secure communications and network segmentation support business flows — design for both.",
-        "Remote access and wireless scenarios reward zero-trust and strong authentication patterns.",
-    ],
-    5: [
-        "Domain 5: identity is the perimeter — federation, least privilege, and lifecycle beat shared accounts.",
-        "PAM and IAM answers should show sustainable process with oversight, not one-off credential sharing.",
-    ],
-    6: [
-        "Domain 6: testing and assessment reduce risk when tied to change and remediation governance.",
-        "Managers commission and prioritize assessment — they do not personally run every scan.",
-    ],
-    7: [
-        "Domain 7: incident response rewards documented plans, roles, and communication before tooling.",
-        "Operations answers balance detect → contain → eradicate → recover with evidence preservation.",
-    ],
-    8: [
-        "Domain 8: SDLC security embeds requirements, threat modeling, and testing in the delivery pipeline.",
-        "DevSecOps choices should reduce defect cost early — shift left, not bolt on after release.",
-    ],
+_DOMAIN_TIPS: dict[int, str] = {
+    1: "Think policy and risk appetite — not packet-level fixes.",
+    2: "Match data handling to classification and legal obligations.",
+    3: "Choose layered, sustainable architecture over silver bullets.",
+    4: "Balance security with how the business actually communicates.",
+    5: "Identity lifecycle and least privilege beat shared accounts.",
+    6: "Commission assessment; prioritize remediation with governance.",
+    7: "Follow the IR plan: roles, comms, then containment and recovery.",
+    8: "Shift-left security in the SDLC beats post-release patches.",
 }
 
-_UNIVERSAL_TIPS = [
-    "Think like a CISO: you own risk decisions, budgets, and cross-functional coordination — not packet captures.",
-    "When two answers seem technical, pick the one that improves governance, auditability, or due care.",
-    "Read the entire vignette: contract SLAs, regulatory pressure, and deadlines change the BEST answer.",
+_WRONG_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bterminat|\bfire\b|\bdismiss|\brevok.*employ", re.I), "Reactive personnel action without investigation, policy, or HR/legal process is poor management."),
+    (re.compile(r"\bdeploy\b|\binstall\b|\bpatch\b|\breimage\b|\bimplement.*immediately", re.I), "Jumps to a technical fix before assessment, governance, or business alignment."),
+    (re.compile(r"\bblock all\b|\bdisable all\b|\bshut down\b|\bban\b|\bprohibit all", re.I), "Too disruptive — managers balance security with business continuity and proportional response."),
+    (re.compile(r"\bignore\b|\bdefer\b|\bwait\b|\bwithout\b.*\breview", re.I), "Defers due care, legal obligation, or accountability when leadership must act."),
+    (re.compile(r"\btrust\b|\bverbal\b|\bassurance\b|\bwithout.*audit", re.I), "Relies on trust or assurances instead of documented due diligence."),
+    (re.compile(r"\bemail\b|\bshare via\b|\bspreadsheet\b|\busb\b", re.I), "Weak or informal handling — not a sustainable governance or data-protection control."),
+    (re.compile(r"\bdelete\b|\bdestroy\b|\bwipe\b|\breimage\b", re.I), "Destructive action may destroy evidence or violate retention/legal hold requirements."),
+    (re.compile(r"\bcertif|\biso\b|\bcompliance badge", re.I), "Checkbox compliance without context rarely answers governance or risk questions by itself."),
+    (re.compile(r"\binsurance\b|\btransfer\b.*only", re.I), "Risk transfer alone does not eliminate accountability or required compensating controls."),
+    (re.compile(r"\bshared account|\bsingle account|\broot credential", re.I), "Shared or elevated credentials violate accountability and least-privilege principles."),
+    (re.compile(r"\bhide\b|\bconceal\b|\bdelay.*notif|\bwithhold", re.I), "Concealment or delayed disclosure conflicts with ethics, law, and incident obligations."),
+    (re.compile(r"\bpenetration test only\b|\bscan only\b|\baudit only\b", re.I), "A single assessment activity does not replace program-level governance or remediation."),
+    (re.compile(r"\baccept risk\b.*without|\bsilently\b", re.I), "Residual risk requires documented acceptance by the right authority — not informal tolerance."),
 ]
+
+_LEAST_WRONG_NOTE = (
+    "On LEAST questions, this is actually a reasonable managerial action — "
+    "the LEAST appropriate choice is usually reckless, unethical, or out of sequence."
+)
+
+_ACTION_WRONG_FALLBACK: dict[str, str] = {
+    "FIRST": "Not the first step — assessment, plan activation, or governance should precede this action.",
+    "BEST": "Plausible tactically, but not the BEST sustainable governance or risk-reduction choice.",
+    "NEXT": "Wrong sequence — this repeats an earlier step or skips the logical follow-on.",
+    "LEAST": _LEAST_WRONG_NOTE,
+    "PRIMARY": "Addresses a symptom or tool, not the greatest organizational or governance concern.",
+}
 
 _DISTRACTOR_HINTS: dict[str, str] = {
     "FIRST": "Common traps: deploying tools, firing vendors, or mandating certifications before root-cause analysis.",
@@ -157,36 +136,75 @@ def build_manager_brief(question: Question) -> str:
     return " ".join(p.strip() for p in parts if p.strip())
 
 
+def _infer_why_wrong(choice_text: str, action: str | None, is_least_question: bool) -> str:
+    if is_least_question:
+        for pattern, reason in _WRONG_PATTERNS:
+            if pattern.search(choice_text):
+                return f"Sounds decisive, but on LEAST items the worst choice is usually the reckless or unethical option. {reason}"
+        return _LEAST_WRONG_NOTE
+
+    for pattern, reason in _WRONG_PATTERNS:
+        if pattern.search(choice_text):
+            return reason
+
+    if action and action in _ACTION_WRONG_FALLBACK:
+        return _ACTION_WRONG_FALLBACK[action]
+
+    return (
+        "Plausible under pressure, but a manager should favor governance, documented risk decisions, "
+        "and business alignment over quick technical or extreme actions."
+    )
+
+
+def build_wrong_choice_notes(question: Question) -> list[dict[str, str]]:
+    """Brief manager-level notes for each incorrect option."""
+    correct = question.correct_choice.upper()
+    action = detect_action_word(question.stem)
+    is_least = action == "LEAST"
+    notes: list[dict[str, str]] = []
+
+    for letter in ("A", "B", "C", "D"):
+        if letter == correct:
+            continue
+        text = _choice_text(question, letter)
+        notes.append({
+            "choice": letter,
+            "text": text,
+            "why_wrong": _infer_why_wrong(text, action, is_least),
+        })
+
+    return notes
+
+
 def build_approach_tips(question: Question) -> list[str]:
+    """At most two short tips: action-word discipline + domain framing."""
     action = detect_action_word(question.stem)
     tips: list[str] = []
 
     if action and action in _ACTION_TIPS:
-        tips.extend(_ACTION_TIPS[action])
+        tips.append(_ACTION_TIPS[action])
 
-    tips.extend(_DOMAIN_TIPS.get(question.domain, []))
-    tips.extend(_UNIVERSAL_TIPS)
+    domain_tip = _DOMAIN_TIPS.get(question.domain)
+    if domain_tip and domain_tip not in tips:
+        tips.append(domain_tip)
 
-    if question.tags and "scenario" in question.tags:
-        tips.append("Long vignettes hide the decision point in the last sentence — read for action words (FIRST, BEST, LEAST, NEXT).")
-
-    seen: set[str] = set()
-    unique: list[str] = []
-    for tip in tips:
-        if tip not in seen:
-            seen.add(tip)
-            unique.append(tip)
-    return unique[:7]
+    return tips[:2]
 
 
-def build_manager_feedback(question: Question) -> dict[str, str | list[str]]:
+def build_manager_feedback(question: Question) -> dict:
     brief = build_manager_brief(question)
     approach_tips = build_approach_tips(question)
+    wrong_choice_notes = build_wrong_choice_notes(question)
     explanation = brief
+    if wrong_choice_notes:
+        explanation += "\n\nWhy other options are wrong:\n"
+        for note in wrong_choice_notes:
+            explanation += f"{note['choice']}: {note['why_wrong']}\n"
     if approach_tips:
-        explanation += "\n\nHow to approach similar questions:\n" + "\n".join(f"• {t}" for t in approach_tips)
+        explanation += "\nQuick tips:\n" + "\n".join(f"• {t}" for t in approach_tips)
     return {
         "manager_brief": brief,
         "approach_tips": approach_tips,
-        "explanation": explanation,
+        "wrong_choice_notes": wrong_choice_notes,
+        "explanation": explanation.strip(),
     }

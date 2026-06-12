@@ -96,12 +96,19 @@ class SubmitResult(BaseModel):
     pass_threshold_scaled: int = 700
 
 
+class WrongChoiceNote(BaseModel):
+    choice: str
+    text: str
+    why_wrong: str
+
+
 class AnswerResult(BaseModel):
     is_correct: bool
     correct_choice: str
     explanation: str
     manager_brief: str = ""
     approach_tips: list[str] = Field(default_factory=list)
+    wrong_choice_notes: list[WrongChoiceNote] = Field(default_factory=list)
     score_percent: float
     session_complete: bool
 
@@ -115,6 +122,7 @@ class ReviewItemOut(BaseModel):
     explanation: str
     manager_brief: str = ""
     approach_tips: list[str] = Field(default_factory=list)
+    wrong_choice_notes: list[WrongChoiceNote] = Field(default_factory=list)
     flagged: bool
 
 

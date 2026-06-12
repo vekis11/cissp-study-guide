@@ -170,8 +170,10 @@ export function ReviewPage({ sessionId, submitResult, onDone }: ReviewPageProps)
                 <ManagerExplanation
                   isCorrect={!!r.is_correct}
                   correctChoice={r.correct_choice}
+                  selectedChoice={r.selected_choice}
                   managerBrief={r.manager_brief ?? r.explanation}
                   approachTips={r.approach_tips ?? []}
+                  wrongChoiceNotes={r.wrong_choice_notes ?? []}
                 />
               </div>
             )}

@@ -333,23 +333,26 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
         )}
 
         {showFeedback && (
-          <ManagerExplanation
-            isCorrect={result!.is_correct}
-            correctChoice={result!.correct_choice}
-            managerBrief={result!.manager_brief ?? result!.explanation}
-            approachTips={result!.approach_tips ?? []}
-          />
+          <div className="practice-next-row">
+            <button type="button" className="btn btn-primary" onClick={handleNext}>
+              {result!.session_complete ? "View Results" : isFast ? "Next →" : "Next Question"}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={handleExitClick}>
+              Exit Session
+            </button>
+          </div>
         )}
 
         {showFeedback && (
-          <>
-            <button type="button" className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={handleNext}>
-              {result!.session_complete ? "View Results" : isFast ? "Next →" : "Next Question"}
-            </button>
-            <button type="button" className="btn btn-secondary" style={{ marginTop: "0.75rem" }} onClick={handleExitClick}>
-              Exit Session
-            </button>
-          </>
+          <ManagerExplanation
+            collapsible
+            isCorrect={result!.is_correct}
+            correctChoice={result!.correct_choice}
+            selectedChoice={selected}
+            managerBrief={result!.manager_brief ?? result!.explanation}
+            approachTips={result!.approach_tips ?? []}
+            wrongChoiceNotes={result!.wrong_choice_notes ?? []}
+          />
         )}
 
         {!showFeedback && (
