@@ -45,7 +45,7 @@ export function SettingsPage({ settings, onUpdate, onNavigate }: SettingsPagePro
               save({ practice_mode: v });
             }}
           >
-            <option value="newbie">Newbie — immediate feedback + explanations</option>
+            <option value="newbie">Newbie — manager brief + approach tips after each answer</option>
             <option value="fast">Fast — quick feedback, auto-advance</option>
             <option value="exam">Exam — no feedback until submit</option>
           </select>

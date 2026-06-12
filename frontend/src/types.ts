@@ -77,6 +77,8 @@ export interface AnswerResult {
   is_correct: boolean;
   correct_choice: string;
   explanation: string;
+  manager_brief?: string;
+  approach_tips?: string[];
   score_percent: number;
   session_complete: boolean;
 }
@@ -114,6 +116,8 @@ export interface ReviewItem {
   correct_choice: string;
   is_correct: boolean | null;
   explanation: string;
+  manager_brief?: string;
+  approach_tips?: string[];
   flagged: boolean;
 }
 

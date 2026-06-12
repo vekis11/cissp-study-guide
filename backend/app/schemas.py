@@ -100,8 +100,22 @@ class AnswerResult(BaseModel):
     is_correct: bool
     correct_choice: str
     explanation: str
+    manager_brief: str = ""
+    approach_tips: list[str] = Field(default_factory=list)
     score_percent: float
     session_complete: bool
+
+
+class ReviewItemOut(BaseModel):
+    attempt_id: int
+    question: QuestionOut
+    selected_choice: str | None
+    correct_choice: str
+    is_correct: bool | None
+    explanation: str
+    manager_brief: str = ""
+    approach_tips: list[str] = Field(default_factory=list)
+    flagged: bool
 
 
 class DomainStats(BaseModel):

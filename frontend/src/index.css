@@ -448,6 +448,54 @@ body {
   border-left-color: var(--danger);
 }
 
+.manager-explanation {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 10px;
+  border-left: 4px solid var(--accent);
+  background: var(--bg-hover);
+}
+
+.manager-explanation.correct-msg {
+  border-left-color: var(--success);
+}
+
+.manager-explanation.incorrect-msg {
+  border-left-color: var(--danger);
+}
+
+.manager-explanation-header {
+  margin-bottom: 0.75rem;
+}
+
+.manager-explanation-section {
+  margin-top: 0.85rem;
+}
+
+.manager-explanation-section h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.manager-explanation-section p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.manager-approach-tips {
+  margin: 0;
+  padding-left: 1.15rem;
+  line-height: 1.5;
+}
+
+.manager-approach-tips li + li {
+  margin-top: 0.45rem;
+}
+
 .progress-bar {
   height: 6px;
   background: var(--bg-hover);

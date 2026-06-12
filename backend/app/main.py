@@ -36,6 +36,7 @@ from app.services.cat_engine import (
     should_stop_cat,
 )
 from app.services.grading import compute_cissp_scaled, grade_label, passed_cissp
+from app.services.manager_explanation import build_manager_feedback
 from app.static_files import mount_frontend
 
 app = FastAPI(
@@ -366,14 +367,19 @@ def answer_question(session_id: int, req: AnswerRequest, db: Session = Depends(g
             is_correct=False,
             correct_choice="",
             explanation="",
+            manager_brief="",
+            approach_tips=[],
             score_percent=0.0,
             session_complete=session_complete,
         )
 
+    feedback = build_manager_feedback(q)
     return AnswerResult(
         is_correct=is_correct,
         correct_choice=q.correct_choice,
-        explanation=q.explanation,
+        explanation=feedback["explanation"],
+        manager_brief=feedback["manager_brief"],
+        approach_tips=feedback["approach_tips"],
         score_percent=percent,
         session_complete=session_complete,
     )
@@ -408,13 +414,16 @@ def review_session(session_id: int, db: Session = Depends(get_db)):
     for a in attempts:
         if not a.selected_choice:
             continue
+        feedback = build_manager_feedback(a.question)
         results.append({
             "attempt_id": a.id,
             "question": _question_out(a.question).model_dump(),
             "selected_choice": a.selected_choice,
             "correct_choice": a.question.correct_choice,
             "is_correct": a.is_correct,
-            "explanation": a.question.explanation,
+            "explanation": feedback["explanation"],
+            "manager_brief": feedback["manager_brief"],
+            "approach_tips": feedback["approach_tips"],
             "flagged": a.flagged,
         })
     return {

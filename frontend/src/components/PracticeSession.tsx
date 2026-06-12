@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { ScoreGauge } from "./charts/ScoreGauge";
+import { ManagerExplanation } from "./ManagerExplanation";
 import type { AnswerResult, Question, SubmitResult } from "../types";
 
 const CHOICES = ["A", "B", "C", "D"] as const;
@@ -328,14 +329,12 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
         )}
 
         {showFeedback && (
-          <div className={`explanation ${result!.is_correct ? "correct-msg" : "incorrect-msg"}`}>
-            {result!.is_correct ? (
-              <strong>Correct — manager-level reasoning.</strong>
-            ) : (
-              <strong>Correct answer: {result!.correct_choice}</strong>
-            )}
-            <p style={{ marginTop: "0.5rem" }}>{result!.explanation}</p>
-          </div>
+          <ManagerExplanation
+            isCorrect={result!.is_correct}
+            correctChoice={result!.correct_choice}
+            managerBrief={result!.manager_brief ?? result!.explanation}
+            approachTips={result!.approach_tips ?? []}
+          />
         )}
 
         {showFeedback && (

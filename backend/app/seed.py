@@ -24,7 +24,7 @@ def needs_reseed(db: Session) -> bool:
     count = db.query(Question).count()
     if count < MIN_QUESTION_COUNT:
         return True
-    sample = db.query(Question).filter(Question.tags.contains("bank-v4")).first()
+    sample = db.query(Question).filter(Question.tags.contains("bank-v5")).first()
     if not sample:
         return True
     return False

@@ -63,7 +63,7 @@ SITUATION_PRESSURES = [
 DIFFICULTY_WEIGHT = {"easy": 1.0, "medium": 1.5, "hard": 2.0}
 PASS_SCALED = 700
 MAX_SCALED = 1000
-BANK_TAG = "bank-v4"
+BANK_TAG = "bank-v5"
 
 
 def _qid(domain: int, seed: str) -> str:
@@ -130,10 +130,6 @@ def _make(
     letters = ["A", "B", "C", "D"]
     idx = choices.index(correct_answer)
     full_explanation = expl
-    if action and "LEAST" not in action.upper():
-        full_explanation += _manager_tip(action)
-    elif action and "LEAST" in action.upper():
-        full_explanation += " On LEAST questions, eliminate options that reflect due care, policy, or proper sequence."
 
     if BANK_TAG not in tags:
         tags = f"{tags},{BANK_TAG}"
