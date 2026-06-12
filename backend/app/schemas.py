@@ -5,7 +5,18 @@ from pydantic import BaseModel, Field
 
 PracticeMode = Literal["newbie", "fast", "exam"]
 StudyPlan = Literal["just_trying", "pass_exam", "high_score", "expert"]
-SessionType = Literal["daily", "missed", "mock_exam", "domain_test", "flagged"]
+ImportanceTier = Literal["must", "high", "good"]
+SessionType = Literal[
+    "daily",
+    "missed",
+    "mock_exam",
+    "domain_test",
+    "flagged",
+    "topic_drill",
+    "guide_drill",
+    "timed_challenge",
+]
+
 
 
 class QuestionOut(BaseModel):
@@ -20,6 +31,8 @@ class QuestionOut(BaseModel):
     choice_c: str
     choice_d: str
     source_topic: str
+    question_type: str = "single"
+    select_count: int = 1
 
     model_config = {"from_attributes": True}
 
@@ -33,12 +46,16 @@ class StartSessionRequest(BaseModel):
     session_type: SessionType
     count: int = Field(default=20, ge=1, le=150)
     domain: int | None = Field(default=None, ge=1, le=8)
+    topic_id: str | None = None
+    importance: ImportanceTier | None = None
     practice_mode: PracticeMode | None = None
+    duration_minutes: int | None = Field(default=None, ge=5, le=180)
+    max_wrong: int | None = Field(default=None, ge=0, le=50)
 
 
 class AnswerRequest(BaseModel):
     question_id: str
-    selected_choice: str = Field(pattern="^[ABCD]$")
+    selected_choice: str = Field(min_length=1, max_length=4, pattern="^[ABCD]+$")
     flagged: bool = False
 
 
@@ -70,10 +87,22 @@ class SessionOut(BaseModel):
     total_questions: int
     correct_count: int
     domain_filter: int | None
+    time_limit_seconds: int | None = None
+    max_wrong_allowed: int | None = None
+    wrong_count: int = 0
     submitted: bool
     attempts: list[AttemptOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class LearningCurvePoint(BaseModel):
+    session_id: int
+    completed_at: datetime | None
+    session_type: str
+    passing: float
+    security: float | None = None
+    hazard: float
 
 
 class SessionProgress(BaseModel):
@@ -169,6 +198,7 @@ class AnalyticsOut(BaseModel):
     domain_bank_coverage: list[DomainBankStats] = Field(default_factory=list)
     domains: list[DomainStats]
     recent_sessions: list[SessionOut]
+    learning_curve: list[LearningCurvePoint] = Field(default_factory=list)
 
 
 class SettingsOut(BaseModel):
@@ -212,3 +242,52 @@ class CatNextQuestion(BaseModel):
     max_questions: int
     time_limit_seconds: int
     should_stop: bool
+
+
+class TopicCoverageOut(BaseModel):
+    topic_id: str
+    domain: int
+    domain_name: str
+    title: str
+    importance: str
+    knowledge_questions: int
+    scenario_questions: int
+    fully_tested: bool
+
+
+class StudyGuideSummaryOut(BaseModel):
+    total_topics: int
+    fully_tested: int
+    coverage_percent: float
+    knowledge_questions: int
+    scenario_bank: int
+
+
+class GuideQuizTierOut(BaseModel):
+    importance: str
+    label: str
+    study_hint: str
+    priority: int
+    topic_count: int
+    question_count: int
+    topic_ids: list[str] = Field(default_factory=list)
+    topic_titles: list[str] = Field(default_factory=list)
+
+
+class GuideQuizDomainOut(BaseModel):
+    domain: int
+    domain_name: str
+    weight_percent: int
+    tiers: list[GuideQuizTierOut]
+
+
+class GuideQuizGroupsOut(BaseModel):
+    by_domain: list[GuideQuizDomainOut]
+    exam_path: list[GuideQuizTierOut]
+
+
+class StudyGuideOut(BaseModel):
+    catalog: dict
+    coverage: list[TopicCoverageOut]
+    quiz_groups: GuideQuizGroupsOut
+    summary: StudyGuideSummaryOut

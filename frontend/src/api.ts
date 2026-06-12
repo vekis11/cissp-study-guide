@@ -4,11 +4,13 @@ import type {
   AnswerResult,
   CurrentQuestion,
   DomainInfo,
+  ImportanceTier,
   ReviewItem,
   Session,
   SessionProgress,
   SessionType,
   Settings,
+  StudyGuideData,
   StudyPlanAdvice,
   SubmitResult,
 } from "./types";
@@ -50,6 +52,11 @@ export const api = {
   domains: () => request<DomainInfo[]>("/domains"),
   questionCounts: () => request<Record<string, number>>("/questions/count"),
   studyPlan: () => request<StudyPlanAdvice>("/study-plan"),
+  studyGuide: () => request<StudyGuideData>("/study-guide"),
+  studyGuideCoverage: () =>
+    request<{ coverage: StudyGuideData["coverage"]; summary: StudyGuideData["summary"] }>(
+      "/study-guide/coverage"
+    ),
   settings: {
     get: () => request<Settings>("/settings"),
     update: (data: Partial<Settings>) =>
@@ -64,8 +71,15 @@ export const api = {
   missed: () => request<{ count: number; questions: unknown[] }>("/missed"),
   flagged: () => request<{ count: number; questions: unknown[] }>("/flagged"),
   sessions: {
-    start: (data: { session_type: SessionType; count: number; domain?: number }) =>
-      request<Session>("/sessions/start", { method: "POST", body: JSON.stringify(data) }),
+    start: (data: {
+      session_type: SessionType;
+      count?: number;
+      domain?: number;
+      topic_id?: string;
+      importance?: ImportanceTier;
+      duration_minutes?: number;
+      max_wrong?: number;
+    }) => request<Session>("/sessions/start", { method: "POST", body: JSON.stringify(data) }),
     get: (id: number) => request<Session>(`/sessions/${id}`),
     progress: (id: number) => request<SessionProgress>(`/sessions/${id}/progress`),
     current: (id: number) => request<CurrentQuestion>(`/sessions/${id}/current`),

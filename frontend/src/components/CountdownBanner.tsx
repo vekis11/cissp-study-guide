@@ -16,24 +16,25 @@ export function CountdownBanner({ settings }: CountdownBannerProps) {
 
   return (
     <div className={`countdown-banner ${urgent ? "urgent" : ""}`}>
-      <div>
-        <strong>Exam Countdown</strong>
-        <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-          Target: {new Date(settings.exam_date + "T00:00:00").toLocaleDateString()}
+      <div className="countdown-copy">
+        <span className="countdown-eyebrow">Exam countdown</span>
+        <strong className="countdown-title">
+          {past ? "Your exam date has passed" : `${days} day${days !== 1 ? "s" : ""} to go`}
+        </strong>
+        <span className="countdown-date">
+          Target: {new Date(settings.exam_date + "T00:00:00").toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+      {!past && (
+        <div className="countdown-ring-wrap" aria-hidden>
+          <span className="countdown-days">{days}</span>
         </div>
-      </div>
-      <div style={{ textAlign: "right" }}>
-        {past ? (
-          <span className="countdown-days">Exam day passed — good luck!</span>
-        ) : (
-          <>
-            <div className="countdown-days">{days}</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-              day{days !== 1 ? "s" : ""} remaining
-            </div>
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }

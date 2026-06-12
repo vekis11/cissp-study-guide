@@ -12,6 +12,7 @@ const NAV_ITEMS: { page: Page; label: string }[] = [
   { page: "missed", label: "Missed" },
   { page: "mock", label: "Mock Exam" },
   { page: "domain", label: "Domain Test" },
+  { page: "study", label: "Study Guide" },
   { page: "analysis", label: "Analysis" },
   { page: "settings", label: "Settings" },
 ];
@@ -23,7 +24,7 @@ export function NavBar({ page, onNavigate }: NavBarProps) {
         <TemTechLogo size={36} />
         <span className="logo-text-wrap">
           <span className="logo-text">CISSP Study</span>
-          <span className="logo-sub">by TemTech Solutions</span>
+          <span className="logo-sub">by TemTech</span>
         </span>
       </button>
       <nav className="nav nav-desktop">

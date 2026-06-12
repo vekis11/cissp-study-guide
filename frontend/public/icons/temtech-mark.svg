@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="TemTech Solutions">
+  <defs>
+    <linearGradient id="g" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset=".45" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#161f2e"/>
+      <stop offset="1" stop-color="#070b12"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="14" fill="url(#bg)" stroke="url(#g)" stroke-width="1.5" stroke-opacity=".65"/>
+  <path d="M32 15.5 46.5 22.2V35.2c0 7.2-5.8 12.8-14.5 15.3-8.7-2.5-14.5-8.1-14.5-15.3V22.2L32 15.5Z" stroke="url(#g)" stroke-width="2.4" stroke-linejoin="round" fill="url(#g)" fill-opacity=".12"/>
+  <path d="M24.5 29.5h15M31.75 29.5V41.5M36.25 29.5V41.5" stroke="url(#g)" stroke-width="2.8" stroke-linecap="round"/>
+  <circle cx="32" cy="20" r="2.2" fill="#38bdf8"/>
+  <circle cx="40.5" cy="25" r="1.6" fill="#818cf8" fill-opacity=".9"/>
+  <circle cx="23.5" cy="25" r="1.6" fill="#818cf8" fill-opacity=".9"/>
+  <path d="M32 22.2v3.8M25.1 25h3.2M35.7 25h3.2" stroke="#6366f1" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
+</svg>

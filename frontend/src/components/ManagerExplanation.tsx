@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { formatChoiceLabel } from "../utils/questionFormat";
 import type { WrongChoiceNote } from "../types";
 
 interface ManagerExplanationProps {
   isCorrect: boolean;
   correctChoice?: string;
   selectedChoice?: string | null;
+  isMultiSelect?: boolean;
   managerBrief: string;
   approachTips: string[];
   wrongChoiceNotes?: WrongChoiceNote[];
@@ -18,6 +20,7 @@ export function ManagerExplanation({
   isCorrect,
   correctChoice,
   selectedChoice,
+  isMultiSelect = false,
   managerBrief,
   approachTips,
   wrongChoiceNotes = [],
@@ -43,9 +46,12 @@ export function ManagerExplanation({
           <strong>Correct — manager-level reasoning</strong>
         ) : (
           <strong>
-            Correct answer: {correctChoice}
+            Correct answer{isMultiSelect ? "s" : ""}: {formatChoiceLabel(correctChoice ?? "")}
             {selectedChoice && selectedChoice !== correctChoice && (
-              <span className="explanation-your-pick"> · You chose {selectedChoice}</span>
+              <span className="explanation-your-pick">
+                {" "}
+                · You chose {formatChoiceLabel(selectedChoice)}
+              </span>
             )}
           </strong>
         )}

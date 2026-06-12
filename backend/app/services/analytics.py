@@ -1,8 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.data.domains import DOMAIN_NAMES, DOMAIN_WEIGHTS
 from app.models import Attempt, Question, SessionRecord, UserSettings
-from app.schemas import AnalyticsOut, DomainBankStats, DomainStats, SessionOut
+from app.schemas import AnalyticsOut, DomainBankStats, DomainStats, LearningCurvePoint, SessionOut
 from app.services.cat_engine import (
     PASS_THRESHOLD,
     compute_score,
@@ -11,6 +11,60 @@ from app.services.cat_engine import (
     readiness_label,
     _attempts_for_user,
 )
+
+
+PASSING_BENCHMARK = 70.0
+
+
+def _session_wrong_count(attempts: list[Attempt]) -> int:
+    return sum(1 for a in attempts if a.selected_choice and a.is_correct is False)
+
+
+def _session_to_out_with_stats(db: Session, session: SessionRecord) -> SessionOut:
+    attempts = (
+        db.query(Attempt)
+        .options(joinedload(Attempt.question))
+        .filter(Attempt.session_id == session.id)
+        .order_by(Attempt.id)
+        .all()
+    )
+    out = SessionOut.model_validate(session)
+    out.wrong_count = _session_wrong_count(attempts)
+    return out
+
+
+def build_learning_curve(db: Session, user_id: str, limit: int = 30) -> list[LearningCurvePoint]:
+    sessions = (
+        db.query(SessionRecord)
+        .filter(SessionRecord.user_id == user_id, SessionRecord.submitted == True)  # noqa: E712
+        .order_by(SessionRecord.completed_at.asc())
+        .limit(limit)
+        .all()
+    )
+    points: list[LearningCurvePoint] = []
+    for session in sessions:
+        attempts = (
+            db.query(Attempt)
+            .options(joinedload(Attempt.question))
+            .filter(Attempt.session_id == session.id, Attempt.selected_choice.isnot(None))
+            .all()
+        )
+        passing = session.scaled_score / 10 if session.scaled_score is not None else (session.score_percent or 0.0)
+        d1_attempts = [a for a in attempts if a.question and a.question.domain == 1]
+        d1_correct = sum(1 for a in d1_attempts if a.is_correct)
+        security = compute_score(d1_correct, len(d1_attempts)) if d1_attempts else None
+        hazard = max(0.0, PASSING_BENCHMARK - passing)
+        points.append(
+            LearningCurvePoint(
+                session_id=session.id,
+                completed_at=session.completed_at,
+                session_type=session.session_type,
+                passing=round(passing, 1),
+                security=round(security, 1) if security is not None else None,
+                hazard=round(hazard, 1),
+            )
+        )
+    return points
 
 
 def build_analytics(db: Session, user_id: str) -> AnalyticsOut:
@@ -53,6 +107,7 @@ def build_analytics(db: Session, user_id: str) -> AnalyticsOut:
         .limit(10)
         .all()
     )
+    learning_curve = build_learning_curve(db, user_id, limit=30)
 
     coverage = get_bank_coverage(db, user_id)
     domain_bank = [DomainBankStats(**row) for row in get_domain_bank_coverage(db, user_id)]
@@ -71,7 +126,8 @@ def build_analytics(db: Session, user_id: str) -> AnalyticsOut:
         bank_coverage_percent=coverage["bank_coverage_percent"],
         domain_bank_coverage=domain_bank,
         domains=domain_stats,
-        recent_sessions=[SessionOut.model_validate(s) for s in sessions],
+        recent_sessions=[_session_to_out_with_stats(db, s) for s in sessions],
+        learning_curve=learning_curve,
     )
 
 

@@ -1,11 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CISSP Study">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="CISSP Study by TemTech Solutions">
   <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#2563eb"/>
-      <stop offset="100%" style="stop-color:#7c3aed"/>
+    <linearGradient id="g" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset=".45" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
+    <linearGradient id="bg" x1="256" y1="32" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#161f2e"/>
+      <stop offset="1" stop-color="#070b12"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(160 128) rotate(45) scale(320)">
+      <stop stop-color="#38bdf8" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <rect width="512" height="512" rx="108" fill="url(#g)"/>
-  <path d="M256 96 L384 160 V288 C384 360 328 408 256 432 C184 408 128 360 128 288 V160 Z" fill="none" stroke="#fff" stroke-width="20" stroke-linejoin="round"/>
-  <text x="256" y="290" text-anchor="middle" font-family="system-ui,sans-serif" font-size="120" font-weight="700" fill="#fff">CI</text>
+  <!-- Maskable safe zone: content within ~80% center -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="108" fill="url(#glow)"/>
+  <rect x="48" y="48" width="416" height="416" rx="88" stroke="url(#g)" stroke-width="6" stroke-opacity=".85" fill="none"/>
+  <path d="M256 124 372 177.6V281.6c0 57.6-46.4 102.4-116 122.4-69.6-20-116-64.8-116-122.4V177.6L256 124Z" stroke="url(#g)" stroke-width="19" stroke-linejoin="round" fill="url(#g)" fill-opacity=".12"/>
+  <path d="M196 236h120M254 236v96M290 236v96" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="256" cy="160" r="18" fill="#38bdf8"/>
+  <circle cx="324" cy="200" r="13" fill="#818cf8" fill-opacity=".9"/>
+  <circle cx="188" cy="200" r="13" fill="#818cf8" fill-opacity=".9"/>
+  <path d="M256 177.6v30.4M200.8 200h25.6M285.6 200h25.6" stroke="#6366f1" stroke-width="9.6" stroke-linecap="round" opacity=".7"/>
 </svg>

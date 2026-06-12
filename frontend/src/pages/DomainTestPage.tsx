@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { PageHeader } from "../components/ui/PageHeader";
+import { IconTarget } from "../components/ui/Icons";
 import type { DomainInfo } from "../types";
 
 interface DomainTestPageProps {
@@ -16,11 +18,14 @@ export function DomainTestPage({ onStart }: DomainTestPageProps) {
   }, []);
 
   return (
-    <>
-      <div className="card">
-        <h2>Domain Mastery Test</h2>
-        <p className="sub">Focus on one of the 8 CISSP domains. Choose a domain and question count.</p>
-        <div className="form-group">
+    <div className="page-enter">
+      <div className="card card-spotlight">
+        <PageHeader
+          eyebrow="Focused practice"
+          title="Domain mastery test"
+          subtitle="Drill one ISC2 domain at a time — weighted to match real exam emphasis."
+        />
+        <div className="form-group" style={{ maxWidth: 200 }}>
           <label htmlFor="domain-count">Questions per session</label>
           <input
             id="domain-count"
@@ -33,30 +38,29 @@ export function DomainTestPage({ onStart }: DomainTestPageProps) {
         </div>
       </div>
 
-      <div className="domain-grid">
+      <div className="domain-grid domain-grid--modern">
         {domains.map((d) => (
-          <div
+          <button
             key={d.id}
-            className="domain-card"
-            style={{ borderColor: selected === d.id ? "var(--accent)" : undefined }}
+            type="button"
+            className={`domain-card domain-card--selectable ${selected === d.id ? "selected" : ""}`}
             onClick={() => setSelected(d.id)}
-            onKeyDown={(e) => e.key === "Enter" && setSelected(d.id)}
-            role="button"
-            tabIndex={0}
           >
-            <h3>Domain {d.id}: {d.name}</h3>
-            <div className="weight">Exam weight: {(d.weight * 100).toFixed(0)}%</div>
-          </div>
+            <span className="domain-card-num">D{d.id}</span>
+            <h3>{d.name}</h3>
+            <div className="weight">{(d.weight * 100).toFixed(0)}% exam weight</div>
+          </button>
         ))}
       </div>
 
       {selected && (
-        <div className="card" style={{ marginTop: "1rem" }}>
-          <button type="button" className="btn btn-primary" onClick={() => onStart(selected, count)}>
-            Start Domain {selected} Test ({count} questions)
+        <div className="card domain-start-bar">
+          <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => onStart(selected, count)}>
+            <IconTarget size={18} />
+            Start Domain {selected} — {count} questions
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }

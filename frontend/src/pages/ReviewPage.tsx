@@ -4,6 +4,7 @@ import { ScoreGauge } from "../components/charts/ScoreGauge";
 import { ManagerExplanation } from "../components/ManagerExplanation";
 import { TemTechLogo } from "../components/TemTechLogo";
 import { DOMAIN_COLORS } from "../utils/chartColors";
+import { formatChoiceLabel, isMultiSelectQuestion } from "../utils/questionFormat";
 import type { ReviewItem, Session, SubmitResult } from "../types";
 
 interface ReviewPageProps {
@@ -165,12 +166,14 @@ export function ReviewPage({ sessionId, submitResult, onDone }: ReviewPageProps)
               <div className="review-question-body">
                 <p className="stem">{r.question.stem}</p>
                 <p className="review-answers">
-                  Your answer: <strong>{r.selected_choice ?? "—"}</strong> · Correct: <strong>{r.correct_choice}</strong>
+                  Your answer: <strong>{formatChoiceLabel(r.selected_choice ?? "") || "—"}</strong> · Correct:{" "}
+                  <strong>{formatChoiceLabel(r.correct_choice)}</strong>
                 </p>
                 <ManagerExplanation
                   isCorrect={!!r.is_correct}
                   correctChoice={r.correct_choice}
                   selectedChoice={r.selected_choice}
+                  isMultiSelect={isMultiSelectQuestion(r.question)}
                   managerBrief={r.manager_brief ?? r.explanation}
                   approachTips={r.approach_tips ?? []}
                   wrongChoiceNotes={r.wrong_choice_notes ?? []}

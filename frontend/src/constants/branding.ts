@@ -1,8 +1,17 @@
-/** Official TemTech Solutions LLC logo (LinkedIn company page, Feb 2026). */
+/** TemTech Solutions LLC — in-app brand assets (self-hosted, PWA-safe). */
 export const COMPANY_NAME = "TemTech Solutions LLC";
-export const COMPANY_TAGLINE = "Cloud Security · DevSecOps · CISSP Training";
+export const COMPANY_SHORT_NAME = "TemTech";
+export const COMPANY_TAGLINE = "Cloud Security · DevSecOps · CISSP";
 
-export const TEMTECH_LOGO_URL =
-  "https://media.licdn.com/dms/image/v2/D560BAQFm66LXVpHk-w/company-logo_200_200/B56ZxTKoaCKIAI-/0/1770921822136/tem_tech_solutions_llc_logo?e=2147483647";
+export const BRAND_MARK_PATH = "/icons/temtech-mark.svg";
+export const APP_ICON_PATH = "/icons/icon.svg";
+
+export const BRAND_COLORS = {
+  cyan: "#38bdf8",
+  indigo: "#6366f1",
+  violet: "#a78bfa",
+  bg: "#070b12",
+  surface: "#121a28",
+} as const;
 
 export const TEMTECH_LINKEDIN = "https://www.linkedin.com/company/temtech-solutions";

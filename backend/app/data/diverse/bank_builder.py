@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 
 from app.data.domains import DOMAIN_NAMES, DOMAIN_WEIGHTS
+from app.data.diverse.multi_select import build_multi_question
 from app.data.diverse.stem_formats import format_stem, shuffle_choices
 from app.data.diverse.topic_specs import TOPIC_SPECS
 from app.data.scenario_templates_premium import PREMIUM_QUESTIONS
 
-BANK_TAG = "bank-v7"
+BANK_TAG = "bank-v9"
 FORMATS_PER_KERNEL = 8
 MIN_BANK_SIZE = 800
 
@@ -50,6 +51,30 @@ def _kernel_questions(spec: dict, kernel_idx: int) -> list[dict]:
             "choice_d": cd,
             "correct_choice": correct,
             "explanation": spec["explanation"],
+            "source_topic": topic,
+        })
+    multi = build_multi_question(spec, kernel_idx)
+    if multi:
+        qid = _qid(domain, f"multi-{multi['id_suffix']}")
+        tags = (
+            f"diverse,manager,scenario,multi-select,{BANK_TAG},{spec.get('tag', 'isc2')}"
+        )
+        questions.append({
+            "id": qid,
+            "domain": domain,
+            "domain_name": DOMAIN_NAMES[domain],
+            "difficulty": difficulty,
+            "tags": tags,
+            "stem": multi["stem"],
+            "choice_a": multi["choice_a"],
+            "choice_b": multi["choice_b"],
+            "choice_c": multi["choice_c"],
+            "choice_d": multi["choice_d"],
+            "correct_choice": multi["correct_choice"],
+            "explanation": (
+                f"{spec['explanation']} Select-all questions require every correct "
+                "managerial action — partial selections are incorrect."
+            ),
             "source_topic": topic,
         })
     return questions

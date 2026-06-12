@@ -7,13 +7,20 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/icon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: [
+        "icons/icon.svg",
+        "icons/temtech-mark.svg",
+        "apple-touch-icon.png",
+        "pwa-192x192.png",
+        "pwa-512x512.png",
+        "favicon.png",
+      ],
       manifest: {
         name: "CISSP Study Companion",
         short_name: "CISSP Study",
-        description: "Daily CISSP exam prep — 8 domains, CAT mock exams, manager-style scenarios",
-        theme_color: "#1a2332",
-        background_color: "#0f1419",
+        description: "Daily CISSP exam prep by TemTech Solutions — 8 domains, CAT mock exams, study guide",
+        theme_color: "#070b12",
+        background_color: "#070b12",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
@@ -51,14 +58,6 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/media\.licdn\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "temtech-logo-cache",
-              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "CacheFirst",

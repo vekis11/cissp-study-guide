@@ -6,6 +6,7 @@ import { DomainRadar } from "../components/charts/DomainRadar";
 import { DomainBarChart } from "../components/charts/DomainBarChart";
 import { DomainProgressMap } from "../components/charts/DomainProgressMap";
 import { SessionTrendChart } from "../components/charts/SessionTrendChart";
+import { LearningCurveChart } from "../components/charts/LearningCurveChart";
 import { TemTechLogo } from "../components/TemTechLogo";
 import { COMPANY_TAGLINE } from "../constants/branding";
 import { scoreColor } from "../utils/chartColors";
@@ -52,7 +53,7 @@ export function AnalysisPage() {
   const bankRemaining = data.bank_remaining ?? 0;
 
   return (
-    <div className="analysis-page">
+    <div className="analysis-page page-enter">
       <header className="analysis-hero glass-card">
         <div className="analysis-hero-top">
           <div>
@@ -65,7 +66,7 @@ export function AnalysisPage() {
               {exporting ? "Exporting…" : "Export progress (CSV)"}
             </button>
           </div>
-          <TemTechLogo size={52} showLabel />
+          <TemTechLogo size={48} variant="stacked" />
         </div>
 
         <div className="analysis-hero-grid">
@@ -190,6 +191,19 @@ export function AnalysisPage() {
         {view === "map" && <DomainProgressMap domains={data.domains} passThreshold={data.exam_pass_threshold} />}
         {view === "bars" && <DomainBarChart domains={data.domains} passThreshold={data.exam_pass_threshold} />}
         {view === "radar" && <DomainRadar domains={data.domains} />}
+      </section>
+
+      <section className="glass-card chart-section">
+        <div className="section-head">
+          <div>
+            <h2>Learning Curve</h2>
+            <p className="sub">
+              Hazard, passing, and Security &amp; Risk (Domain 1) across your last {data.learning_curve?.length ?? 0}{" "}
+              submitted sessions.
+            </p>
+          </div>
+        </div>
+        <LearningCurveChart points={data.learning_curve ?? []} />
       </section>
 
       <section className="glass-card chart-section">

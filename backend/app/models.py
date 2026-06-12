@@ -19,7 +19,7 @@ class Question(Base):
     choice_b: Mapped[str] = mapped_column(Text)
     choice_c: Mapped[str] = mapped_column(Text)
     choice_d: Mapped[str] = mapped_column(Text)
-    correct_choice: Mapped[str] = mapped_column(String(1))
+    correct_choice: Mapped[str] = mapped_column(String(8))
     explanation: Mapped[str] = mapped_column(Text)
     source_topic: Mapped[str] = mapped_column(String(256), default="")
 
@@ -38,6 +38,8 @@ class SessionRecord(Base):
     total_questions: Mapped[int] = mapped_column(Integer, default=0)
     correct_count: Mapped[int] = mapped_column(Integer, default=0)
     domain_filter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    time_limit_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_wrong_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     submitted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="session", cascade="all, delete-orphan")
@@ -49,7 +51,7 @@ class Attempt(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), index=True)
     question_id: Mapped[str] = mapped_column(ForeignKey("questions.id"), index=True)
-    selected_choice: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    selected_choice: Mapped[str | None] = mapped_column(String(8), nullable=True)
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     answered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     flagged: Mapped[bool] = mapped_column(Boolean, default=False)

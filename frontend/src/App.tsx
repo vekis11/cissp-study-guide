@@ -15,7 +15,9 @@ import { FlaggedPage } from "./pages/FlaggedPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ReviewPage } from "./pages/ReviewPage";
-import type { Page, SubmitResult, SessionType } from "./types";
+import { StudyGuidePage } from "./pages/StudyGuidePage";
+import { TimedChallengePage } from "./pages/TimedChallengePage";
+import type { ImportanceTier, Page, SubmitResult, SessionType } from "./types";
 
 function LegalPage({ title, children, onBack }: { title: string; children: ReactNode; onBack: () => void }) {
   return (
@@ -37,10 +39,26 @@ export default function App() {
   const [sessionMode, setSessionMode] = useState("newbie");
   const [startError, setStartError] = useState<string | null>(null);
 
-  const startSession = async (type: SessionType, count: number, domain?: number) => {
+  const startSession = async (
+    type: SessionType,
+    count: number,
+    domain?: number,
+    topicId?: string,
+    importance?: ImportanceTier,
+    durationMinutes?: number,
+    maxWrong?: number
+  ) => {
     setStartError(null);
     try {
-      const session = await api.sessions.start({ session_type: type, count, domain });
+      const session = await api.sessions.start({
+        session_type: type,
+        count,
+        domain,
+        topic_id: topicId,
+        importance,
+        duration_minutes: durationMinutes,
+        max_wrong: maxWrong,
+      });
       setSessionId(session.id);
       setSessionMode(session.mode);
       setPage("practice");
@@ -67,7 +85,14 @@ export default function App() {
   }
 
   if (loading || !settings) {
-    return <div className="loading">Loading CISSP Study Companion...</div>;
+    return (
+      <div className="app-loading">
+        <div className="app-loading-card">
+          <div className="app-loading-spinner" aria-hidden />
+          <p>Loading CISSP Study Companion…</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -100,8 +125,22 @@ export default function App() {
 
         {page === "mock" && <MockExamPage onStart={(count) => startSession("mock_exam", count)} />}
 
+        {page === "timed" && (
+          <TimedChallengePage
+            onStart={(minutes, maxWrong) => startSession("timed_challenge", 0, undefined, undefined, undefined, minutes, maxWrong)}
+          />
+        )}
+
         {page === "domain" && (
           <DomainTestPage onStart={(domain, count) => startSession("domain_test", count, domain)} />
+        )}
+
+        {page === "study" && (
+          <StudyGuidePage
+            onStartGuideQuiz={(importance, domain, questionCount) =>
+              startSession("guide_drill", questionCount ?? 50, domain, undefined, importance)
+            }
+          />
         )}
 
         {page === "analysis" && <AnalysisPage />}

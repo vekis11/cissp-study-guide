@@ -27,6 +27,8 @@ def _ensure_columns(db: Session) -> None:
     _add_column_if_missing(db, "user_settings", "daily_prioritize_unseen", "BOOLEAN DEFAULT 1")
     _add_column_if_missing(db, "user_settings", "daily_weak_domain_bias", "BOOLEAN DEFAULT 1")
     _add_column_if_missing(db, "user_settings", "daily_avoid_repeats", "BOOLEAN DEFAULT 1")
+    _add_column_if_missing(db, "sessions", "time_limit_seconds", "INTEGER")
+    _add_column_if_missing(db, "sessions", "max_wrong_allowed", "INTEGER")
     try:
         db.execute(text("UPDATE sessions SET user_id = 'legacy' WHERE user_id IS NULL OR user_id = ''"))
         db.execute(text("UPDATE user_settings SET user_id = 'legacy' WHERE user_id IS NULL OR user_id = ''"))
@@ -39,7 +41,7 @@ def needs_reseed(db: Session) -> bool:
     count = db.query(Question).count()
     if count < MIN_QUESTION_COUNT:
         return True
-    sample = db.query(Question).filter(Question.tags.contains("bank-v7")).first()
+    sample = db.query(Question).filter(Question.tags.contains("bank-v9")).first()
     if not sample:
         return True
     return False
@@ -53,7 +55,7 @@ def seed_database(force: bool = False) -> int:
         if needs_reseed(db) or force:
             db.query(Question).delete()
             db.commit()
-            print(f"Seeding question bank v{BANK_VERSION} (800+ diverse scenario questions)...")
+            print(f"Seeding question bank v{BANK_VERSION} ({MIN_QUESTION_COUNT}+ scenario questions)...")
             batch = []
             for q in get_all_questions():
                 batch.append(Question(**q))

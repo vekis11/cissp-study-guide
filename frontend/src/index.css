@@ -1,25 +1,35 @@
 :root {
-  --bg: #0a0e14;
-  --bg-card: #141b26;
-  --bg-hover: #1c2636;
-  --text: #eef2f8;
-  --text-muted: #8b9cb3;
-  --accent: #3b82f6;
-  --accent-dim: #2563eb;
-  --accent-glow: rgba(59, 130, 246, 0.35);
-  --success: #22c55e;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --border: #2a3548;
-  --radius: 16px;
-  --font: "DM Sans", system-ui, sans-serif;
+  --bg: #070b12;
+  --bg-card: #0f1520;
+  --bg-hover: #161f2e;
+  --bg-elevated: #1a2436;
+  --text: #f1f5fb;
+  --text-muted: #8b9cb8;
+  --accent: #38bdf8;
+  --accent-dim: #0ea5e9;
+  --accent-secondary: #8b5cf6;
+  --accent-glow: rgba(56, 189, 248, 0.35);
+  --gradient-brand: linear-gradient(135deg, #38bdf8 0%, #6366f1 52%, #a78bfa 100%);
+  --gradient-surface: linear-gradient(160deg, rgba(56, 189, 248, 0.08), rgba(139, 92, 246, 0.06));
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --border: rgba(255, 255, 255, 0.08);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --font: "Plus Jakarta Sans", system-ui, sans-serif;
   --mono: "JetBrains Mono", monospace;
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.28);
+  --shadow-glow: 0 0 40px rgba(56, 189, 248, 0.12);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --chart-track: rgba(255, 255, 255, 0.08);
   --chart-grid: rgba(255, 255, 255, 0.06);
-  --glass-bg: rgba(20, 27, 38, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --mesh-1: rgba(59, 130, 246, 0.12);
-  --mesh-2: rgba(139, 92, 246, 0.1);
+  --glass-bg: rgba(12, 18, 28, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --mesh-1: rgba(56, 189, 248, 0.14);
+  --mesh-2: rgba(139, 92, 246, 0.12);
 }
 
 [data-theme="light"] {
@@ -48,10 +58,15 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
   background-image:
-    radial-gradient(ellipse 80% 50% at 20% -10%, var(--mesh-1), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 10%, var(--mesh-2), transparent);
+    radial-gradient(ellipse 90% 60% at 10% -15%, var(--mesh-1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 95% 5%, var(--mesh-2), transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+  background-position: center, center, center, center;
 }
 
 #root {
@@ -200,18 +215,9 @@ body {
   gap: 0.5rem;
 }
 
-.temtech-logo-img {
+.temtech-logo-svg {
   width: var(--logo-size, 40px);
   height: var(--logo-size, 40px);
-  border-radius: 10px;
-  object-fit: contain;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-}
-
-.temtech-logo-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
 }
 
 .main {
@@ -1471,6 +1477,65 @@ body {
   font-size: 0.9rem;
 }
 
+/* Learning curve */
+.learning-curve-chart svg {
+  width: 100%;
+  height: auto;
+}
+
+.learning-curve-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.learning-curve-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.learning-curve-swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.learning-curve-swatch--dashed {
+  background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px);
+}
+
+.learning-curve-note {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.practice-wrongs {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.practice-wrongs--over {
+  color: var(--danger);
+}
+
+.timed-config-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 520px) {
+  .timed-config-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .session-table-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -1688,4 +1753,126 @@ body {
   display: flex;
   justify-content: center;
   margin: 1rem 0;
+}
+
+/* Study guide */
+.study-guide-hero .exam-format-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.importance-legend {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+}
+
+.importance-legend li {
+  margin-bottom: 0.35rem;
+}
+
+.domain-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.study-domain-card h2 {
+  margin-bottom: 0.75rem;
+}
+
+.exam-tips {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.study-topic {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.study-topic-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-hover);
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+  font-family: var(--font);
+}
+
+.study-topic-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.study-topic-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.coverage-ok {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.coverage-gap {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.importance-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.study-topic-body {
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.scenario-box {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.08);
+  font-size: 0.9rem;
+}
+
+.scenario-answer {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+}
+
+.study-topic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mindset-card ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
 }

@@ -20,6 +20,7 @@ from app.schemas import (
     SettingsOut,
     SettingsUpdate,
     StartSessionRequest,
+    StudyGuideOut,
     StudyPlanOut,
     SubmitResult,
 )
@@ -39,8 +40,19 @@ from app.services.cat_engine import (
     session_domain_counts,
     should_stop_cat,
 )
+from app.services.answer_key import (
+    grade_answer,
+    parse_choices,
+    question_type_for,
+    validate_submission,
+)
 from app.services.grading import compute_cissp_scaled, grade_label, passed_cissp
 from app.services.manager_explanation import build_manager_feedback
+from app.services.study_guide import (
+    build_study_guide_payload,
+    select_guide_drill_questions,
+    select_topic_drill_questions,
+)
 from app.services.study_plan import build_study_plan
 from app.static_files import mount_frontend
 from app.user_context import get_user_id
@@ -90,6 +102,32 @@ def _session_attempts(db: Session, session_id: int) -> list[Attempt]:
     )
 
 
+def _wrong_count(attempts: list[Attempt]) -> int:
+    return sum(1 for a in attempts if a.selected_choice and a.is_correct is False)
+
+
+def _seconds_remaining(session: SessionRecord) -> int | None:
+    if not session.time_limit_seconds:
+        return None
+    elapsed = (datetime.utcnow() - session.started_at).total_seconds()
+    return max(0, int(session.time_limit_seconds - elapsed))
+
+
+def _time_expired(session: SessionRecord) -> bool:
+    remaining = _seconds_remaining(session)
+    return remaining is not None and remaining <= 0
+
+
+def _timed_limits_hit(session: SessionRecord, attempts: list[Attempt]) -> bool:
+    if session.session_type != "timed_challenge":
+        return False
+    if _time_expired(session):
+        return True
+    if session.max_wrong_allowed is not None and _wrong_count(attempts) > session.max_wrong_allowed:
+        return True
+    return False
+
+
 def _session_to_out(db: Session, session: SessionRecord) -> SessionOut:
     session = (
         db.query(SessionRecord)
@@ -97,18 +135,35 @@ def _session_to_out(db: Session, session: SessionRecord) -> SessionOut:
         .filter(SessionRecord.id == session.id)
         .first()
     )
-    return SessionOut.model_validate(session)
+    out = SessionOut.model_validate(session)
+    out.wrong_count = _wrong_count(session.attempts)
+    return out
 
 
 def _question_out(q: Question) -> QuestionOut:
-    return QuestionOut.model_validate(q)
+    parsed = parse_choices(q.correct_choice)
+    return QuestionOut(
+        id=q.id,
+        domain=q.domain,
+        domain_name=q.domain_name,
+        difficulty=q.difficulty,
+        tags=q.tags,
+        stem=q.stem,
+        choice_a=q.choice_a,
+        choice_b=q.choice_b,
+        choice_c=q.choice_c,
+        choice_d=q.choice_d,
+        source_topic=q.source_topic,
+        question_type=question_type_for(q.correct_choice),
+        select_count=len(parsed) if parsed else 1,
+    )
 
 
 def _grade_and_finalize(db: Session, session: SessionRecord) -> SubmitResult:
     attempts = _session_attempts(db, session.id)
     for a in attempts:
         if a.selected_choice and a.is_correct is None and a.question:
-            a.is_correct = a.selected_choice == a.question.correct_choice
+            a.is_correct = grade_answer(a.selected_choice, a.question.correct_choice)
 
     scaled, percent, correct, answered = compute_cissp_scaled(attempts)
     session.correct_count = correct
@@ -210,6 +265,17 @@ def study_plan(db: Session = Depends(get_db), user_id: str = Depends(get_user_id
     return StudyPlanOut(**build_study_plan(db, settings))
 
 
+@app.get("/api/study-guide", response_model=StudyGuideOut)
+def study_guide(db: Session = Depends(get_db)):
+    return StudyGuideOut(**build_study_guide_payload(db))
+
+
+@app.get("/api/study-guide/coverage")
+def study_guide_coverage(db: Session = Depends(get_db)):
+    payload = build_study_guide_payload(db)
+    return {"coverage": payload["coverage"], "summary": payload["summary"]}
+
+
 @app.get("/api/analytics", response_model=AnalyticsOut)
 def analytics(db: Session = Depends(get_db), user_id: str = Depends(get_user_id)):
     return build_analytics(db, user_id)
@@ -298,6 +364,42 @@ def start_session(
         questions = select_questions(db, count, domain=req.domain)
     elif req.session_type == "daily":
         questions = select_daily_questions(db, count, user_id, settings)
+    elif req.session_type == "topic_drill":
+        if not req.topic_id:
+            raise HTTPException(400, "topic_id required for topic drill")
+        questions = select_topic_drill_questions(db, req.topic_id, min(count, 20))
+        if not questions:
+            raise HTTPException(404, "No questions available for this study topic")
+    elif req.session_type == "guide_drill":
+        if not req.importance:
+            raise HTTPException(400, "importance required for guide drill (must, high, or good)")
+        questions = select_guide_drill_questions(db, req.importance, req.domain)
+        if not questions:
+            raise HTTPException(404, "No scenario questions for this domain and priority tier")
+    elif req.session_type == "timed_challenge":
+        if req.duration_minutes is None or req.max_wrong is None:
+            raise HTTPException(400, "duration_minutes and max_wrong required for timed challenge")
+        minutes = min(max(req.duration_minutes, 5), 180)
+        max_wrong = min(max(req.max_wrong, 0), 50)
+        pool_size = min(minutes * 2, 100)
+        questions = select_daily_questions(db, pool_size, user_id, settings)
+        if not questions:
+            raise HTTPException(404, "No questions available for timed challenge")
+        session = SessionRecord(
+            user_id=user_id,
+            mode="fast",
+            session_type=req.session_type,
+            total_questions=len(questions),
+            domain_filter=None,
+            time_limit_seconds=minutes * 60,
+            max_wrong_allowed=max_wrong,
+        )
+        db.add(session)
+        db.flush()
+        for q in questions:
+            db.add(Attempt(session_id=session.id, question_id=q.id))
+        db.commit()
+        return _session_to_out(db, session)
     else:
         questions = select_questions(db, count)
 
@@ -338,14 +440,15 @@ def session_progress(session_id: int, db: Session = Depends(get_db), user_id: st
     answered_list = [a for a in attempts if a.selected_choice]
     scaled, percent, _, answered = compute_cissp_scaled(attempts)
     max_q = session.total_questions if session.session_type == "mock_exam" else len(attempts)
+    hide_scores = not session.submitted
     return SessionProgress(
         answered=answered,
         total_in_session=len(attempts),
         max_questions=max_q,
         can_submit=answered > 0 and not session.submitted,
-        score_percent=percent,
-        scaled_score=scaled,
-        passed=passed_cissp(scaled),
+        score_percent=0.0 if hide_scores else percent,
+        scaled_score=0.0 if hide_scores else scaled,
+        passed=passed_cissp(scaled) if not hide_scores else False,
         pass_threshold_scaled=PASS_SCALED,
     )
 
@@ -365,10 +468,23 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
         if len(answered) >= CAT_MIN_QUESTIONS:
             return {"complete": True, "session": _session_to_out(db, session), "cat_complete": True}
 
+    if session.session_type == "timed_challenge" and not session.submitted and _time_expired(session):
+        _grade_and_finalize(db, session)
+        return {"complete": True, "session": _session_to_out(db, session), "timed_expired": True}
+
     if not unanswered:
         return {"complete": True, "session": _session_to_out(db, session)}
 
     current = unanswered[0]
+    time_limit = None
+    seconds_remaining = None
+    if session.session_type == "mock_exam":
+        time_limit = CAT_TIME_SECONDS
+        seconds_remaining = CAT_TIME_SECONDS
+    elif session.session_type == "timed_challenge" and session.time_limit_seconds:
+        time_limit = session.time_limit_seconds
+        seconds_remaining = _seconds_remaining(session)
+
     return {
         "complete": False,
         "index": len(answered) + 1,
@@ -377,8 +493,12 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
         "question": _question_out(current.question).model_dump(),
         "attempt_id": current.id,
         "flagged": current.flagged,
-        "time_limit_seconds": CAT_TIME_SECONDS if session.session_type == "mock_exam" else None,
+        "time_limit_seconds": time_limit,
+        "seconds_remaining": seconds_remaining,
         "is_cat": session.session_type == "mock_exam",
+        "is_timed_challenge": session.session_type == "timed_challenge",
+        "wrong_count": _wrong_count(attempts),
+        "max_wrong_allowed": session.max_wrong_allowed,
     }
 
 
@@ -406,8 +526,12 @@ def answer_question(
         raise HTTPException(404, "Question not in this session")
 
     q = attempt.question
-    is_correct = req.selected_choice == q.correct_choice
-    attempt.selected_choice = req.selected_choice
+    try:
+        normalized = validate_submission(req.selected_choice, q.correct_choice)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    is_correct = grade_answer(normalized, q.correct_choice)
+    attempt.selected_choice = normalized
     attempt.flagged = req.flagged
     attempt.answered_at = datetime.utcnow()
     attempt.is_correct = is_correct
@@ -426,11 +550,15 @@ def answer_question(
     unanswered = [a for a in attempts if not a.selected_choice]
     if session.session_type == "mock_exam":
         session_complete = cat_done and not unanswered
+    elif session.session_type == "timed_challenge":
+        session_complete = _timed_limits_hit(session, attempts) or len(unanswered) == 0
     else:
         session_complete = len(unanswered) == 0
 
     if session_complete and not session.submitted and session.mode != "exam":
         _grade_and_finalize(db, session)
+
+    hide_live_score = not session.submitted
 
     if hide_feedback:
         return AnswerResult(
@@ -452,7 +580,7 @@ def answer_question(
         manager_brief=feedback["manager_brief"],
         approach_tips=feedback["approach_tips"],
         wrong_choice_notes=feedback["wrong_choice_notes"],
-        score_percent=percent,
+        score_percent=0.0 if hide_live_score else percent,
         session_complete=session_complete,
     )
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from app.services.answer_key import is_multi_select, parse_choices
+
 if TYPE_CHECKING:
     from app.models import Question
 
@@ -24,6 +26,7 @@ _ACTION_TIPS: dict[str, str] = {
     "LEAST": "LEAST = pick the worst managerial choice (ethics, sequence, or due care).",
     "NEXT": "NEXT = follow-on step only; don't repeat triage or discovery.",
     "PRIMARY": "PRIMARY = people, law, and governance over tools or symptoms.",
+    "MULTI": "Select-all = choose every correct option; partial credit is not awarded.",
 }
 
 _DOMAIN_TIPS: dict[int, str] = {
@@ -81,6 +84,8 @@ def _choice_text(question: Question, letter: str) -> str:
 
 
 def detect_action_word(stem: str) -> str | None:
+    if re.search(r"select (two|all|three)|select all that apply", stem, re.I):
+        return "MULTI"
     for name, pattern in _ACTION_PATTERNS:
         if pattern.search(stem):
             return name
@@ -109,8 +114,7 @@ def _strip_legacy_tips(explanation: str) -> str:
 
 
 def build_manager_brief(question: Question) -> str:
-    correct = question.correct_choice.upper()
-    correct_text = _choice_text(question, correct)
+    correct_set = sorted(parse_choices(question.correct_choice))
     core = _strip_legacy_tips(question.explanation)
     action = detect_action_word(question.stem)
 
@@ -118,9 +122,21 @@ def build_manager_brief(question: Question) -> str:
     if question.source_topic:
         topic_line = f"This scenario focuses on {question.source_topic}. "
 
-    leadership = (
-        f"As the accountable security leader, option {correct} is correct: \"{correct_text}\". "
-    )
+    if is_multi_select(question.correct_choice):
+        parts = [
+            f"{letter}: \"{_choice_text(question, letter)}\""
+            for letter in correct_set
+        ]
+        leadership = (
+            f"As the accountable security leader, options {', '.join(correct_set)} are correct — "
+            f"{'; '.join(parts)}. "
+        )
+    else:
+        letter = correct_set[0] if correct_set else question.correct_choice.upper()
+        leadership = (
+            f"As the accountable security leader, option {letter} is correct: "
+            f"\"{_choice_text(question, letter)}\". "
+        )
     reasoning = f"{core} " if core else ""
 
     distractor = ""
@@ -158,13 +174,13 @@ def _infer_why_wrong(choice_text: str, action: str | None, is_least_question: bo
 
 def build_wrong_choice_notes(question: Question) -> list[dict[str, str]]:
     """Brief manager-level notes for each incorrect option."""
-    correct = question.correct_choice.upper()
+    correct_set = parse_choices(question.correct_choice)
     action = detect_action_word(question.stem)
     is_least = action == "LEAST"
     notes: list[dict[str, str]] = []
 
     for letter in ("A", "B", "C", "D"):
-        if letter == correct:
+        if letter in correct_set:
             continue
         text = _choice_text(question, letter)
         notes.append({
