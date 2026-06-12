@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cissp-study
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/cissp_study.db
+      - key: SERVE_STATIC
+        value: "true"
+      - key: CORS_ALLOW_ALL
+        value: "true"
+    disk:
+      name: cissp-data
+      mountPath: /data
+      sizeGB: 1

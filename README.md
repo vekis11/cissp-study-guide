@@ -1,6 +1,8 @@
-# CISSP Study Companion
+# CISSP Study Companion v3.0
 
 Installable daily companion PWA for CISSP exam prep — **Android, iPhone, and PC** from one link.
+
+**v3 highlights:** per-device progress sync, Render persistent storage, 800+ diverse questions, spaced-repetition missed review, flagged questions, study plan automation, CSV export, April 2024 CAT timing (125–150 Q / 3 hr).
 
 ## Install on your devices
 
@@ -23,7 +25,9 @@ Deploy with Docker to any cloud host (Render, Railway, Fly.io, VPS):
 docker compose up --build -d
 ```
 
-Your link becomes: `https://your-domain.com` — open on any device and install.
+On **Render**, use the included `render.yaml` — it mounts a **persistent disk** at `/data` so progress survives redeploys.
+
+Your link becomes: `https://your-domain.com` — open on any device and install. Progress syncs across phone and PC when using the same browser profile (anonymous study ID).
 
 For a quick tunnel while testing: use [ngrok](https://ngrok.com/) or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) pointing to port 8080.
 
@@ -47,7 +51,7 @@ Use **`start-local.bat`** for separate frontend (5173) + backend (8001) during d
 
 - **PWA:** Vite + vite-plugin-pwa (installable, standalone display)
 - **Backend:** FastAPI + SQLite (single URL in app mode)
-- **Questions:** 1,048+ scenario-based MCQs (manager/leadership style)
+- **Questions:** 800+ unique scenario-based MCQs (8 stem formats, ISC2 April 2024 outline)
 
 ## Manual build + run (app mode)
 

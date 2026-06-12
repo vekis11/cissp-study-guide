@@ -287,6 +287,17 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
         <p className="stem">{question.stem}</p>
 
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className={`btn btn-secondary ${flagged ? "btn-primary" : ""}`}
+            onClick={() => setFlagged(!flagged)}
+            disabled={!!selected && !isExam && !!result}
+          >
+            {flagged ? "Flagged for review" : "Flag for review"}
+          </button>
+        </div>
+
         <div className="choice-list">
           {CHOICES.map((letter) => {
             let cls = "choice-btn";
@@ -312,13 +323,6 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
         {isExam && (
           <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`btn btn-secondary ${flagged ? "btn-primary" : ""}`}
-              onClick={() => setFlagged(!flagged)}
-            >
-              {flagged ? "Flagged" : "Flag for review"}
-            </button>
             <button type="button" className="btn btn-secondary" onClick={() => loadCurrent()} disabled={!selected}>
               Next
             </button>

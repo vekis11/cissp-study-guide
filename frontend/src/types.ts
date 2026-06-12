@@ -2,6 +2,7 @@ export type Page =
   | "home"
   | "daily"
   | "missed"
+  | "flagged"
   | "mock"
   | "domain"
   | "analysis"
@@ -13,7 +14,7 @@ export type Page =
 
 export type PracticeMode = "newbie" | "fast" | "exam";
 export type StudyPlan = "just_trying" | "pass_exam" | "high_score" | "expert";
-export type SessionType = "daily" | "missed" | "mock_exam" | "domain_test";
+export type SessionType = "daily" | "missed" | "mock_exam" | "domain_test" | "flagged";
 
 export interface Question {
   id: string;
@@ -37,6 +38,29 @@ export interface Settings {
   exam_date: string | null;
   theme: string;
   exam_alert_enabled: boolean;
+  daily_prioritize_unseen: boolean;
+  daily_weak_domain_bias: boolean;
+  daily_avoid_repeats: boolean;
+}
+
+export interface StudyPlanAdvice {
+  days_until_exam: number | null;
+  bank_remaining: number;
+  bank_total: number;
+  bank_answered_unique: number;
+  bank_coverage_percent: number;
+  recommended_daily_questions: number;
+  recommended_daily_minutes: number;
+  message: string;
+}
+
+export interface DomainBankStats {
+  domain: number;
+  domain_name: string;
+  bank_total: number;
+  bank_answered_unique: number;
+  bank_remaining: number;
+  bank_coverage_percent: number;
 }
 
 export interface Session {
@@ -105,6 +129,11 @@ export interface Analytics {
   total_questions_answered: number;
   total_sessions: number;
   exam_pass_threshold: number;
+  bank_total: number;
+  bank_answered_unique: number;
+  bank_remaining: number;
+  bank_coverage_percent: number;
+  domain_bank_coverage: DomainBankStats[];
   domains: DomainStats[];
   recent_sessions: Session[];
 }

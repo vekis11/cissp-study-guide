@@ -14,6 +14,7 @@ ENV FRONTEND_DIST=/app/frontend/dist
 ENV SERVE_STATIC=true
 ENV CORS_ALLOW_ALL=true
 ENV PORT=8080
+ENV DATABASE_PATH=/data/cissp_study.db
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 EXPOSE 8080
-CMD uvicorn app.main:app --host 0.0.0.0 --port 8080
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

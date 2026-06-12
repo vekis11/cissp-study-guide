@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 PracticeMode = Literal["newbie", "fast", "exam"]
 StudyPlan = Literal["just_trying", "pass_exam", "high_score", "expert"]
-SessionType = Literal["daily", "missed", "mock_exam", "domain_test"]
+SessionType = Literal["daily", "missed", "mock_exam", "domain_test", "flagged"]
 
 
 class QuestionOut(BaseModel):
@@ -31,7 +31,7 @@ class QuestionWithAnswer(QuestionOut):
 
 class StartSessionRequest(BaseModel):
     session_type: SessionType
-    count: int = Field(default=20, ge=1, le=175)
+    count: int = Field(default=20, ge=1, le=150)
     domain: int | None = Field(default=None, ge=1, le=8)
     practice_mode: PracticeMode | None = None
 
@@ -128,12 +128,37 @@ class DomainStats(BaseModel):
     readiness: str
 
 
+class DomainBankStats(BaseModel):
+    domain: int
+    domain_name: str
+    bank_total: int
+    bank_answered_unique: int
+    bank_remaining: int
+    bank_coverage_percent: float
+
+
+class StudyPlanOut(BaseModel):
+    days_until_exam: int | None
+    bank_remaining: int
+    bank_total: int
+    bank_answered_unique: int
+    bank_coverage_percent: float
+    recommended_daily_questions: int
+    recommended_daily_minutes: int
+    message: str
+
+
 class AnalyticsOut(BaseModel):
     overall_pass_rate: float
     overall_readiness: str
     total_questions_answered: int
     total_sessions: int
     exam_pass_threshold: float
+    bank_total: int = 0
+    bank_answered_unique: int = 0
+    bank_remaining: int = 0
+    bank_coverage_percent: float = 0.0
+    domain_bank_coverage: list[DomainBankStats] = Field(default_factory=list)
     domains: list[DomainStats]
     recent_sessions: list[SessionOut]
 
@@ -146,6 +171,9 @@ class SettingsOut(BaseModel):
     exam_date: str | None
     theme: str
     exam_alert_enabled: bool
+    daily_prioritize_unseen: bool = True
+    daily_weak_domain_bias: bool = True
+    daily_avoid_repeats: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -158,6 +186,9 @@ class SettingsUpdate(BaseModel):
     exam_date: str | None = None
     theme: str | None = None
     exam_alert_enabled: bool | None = None
+    daily_prioritize_unseen: bool | None = None
+    daily_weak_domain_bias: bool | None = None
+    daily_avoid_repeats: bool | None = None
 
 
 class DomainInfo(BaseModel):

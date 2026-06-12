@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import type { Settings } from "../types";
 import { api } from "../api";
 
-export function useSettings() {
+export function useSettings(enabled = true) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) return;
+    setLoading(true);
     api.settings
       .get()
       .then(setSettings)
       .finally(() => setLoading(false));
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     if (settings?.theme) {

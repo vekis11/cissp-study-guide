@@ -496,6 +496,39 @@ body {
   margin-top: 0.45rem;
 }
 
+.bank-coverage {
+  margin-top: 0.5rem;
+}
+
+.bank-coverage-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.bank-coverage-stats strong {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.bank-progress-bar {
+  height: 10px;
+}
+
+.server-wakeup {
+  max-width: 420px;
+  margin: 4rem auto;
+  text-align: center;
+  padding: 2rem;
+}
+
+.study-plan-card {
+  border-left: 4px solid var(--accent);
+}
+
 .progress-bar {
   height: 6px;
   background: var(--bg-hover);

@@ -1,38 +1,36 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-interface MissedPageProps {
+interface FlaggedPageProps {
   onStart: (count: number) => void;
 }
 
-export function MissedPage({ onStart }: MissedPageProps) {
-  const [count, setMissedCount] = useState(0);
+export function FlaggedPage({ onStart }: FlaggedPageProps) {
+  const [count, setFlaggedCount] = useState(0);
   const [sessionCount, setSessionCount] = useState(20);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.missed()
-      .then((d) => setMissedCount(d.count))
+    api.flagged()
+      .then((d) => setFlaggedCount(d.count))
       .catch((e) => setError(e.message));
   }, []);
 
   return (
     <div className="card">
-      <h2>Missed Questions</h2>
-      <p className="sub">
-        Spaced repetition review — most overdue missed questions appear first so you revisit them before newer mistakes.
-      </p>
+      <h2>Flagged Questions</h2>
+      <p className="sub">Review questions you flagged during daily practice or mock exams.</p>
       {error && <div className="error-msg">{error}</div>}
       <div className="stat-box" style={{ marginBottom: "1rem" }}>
         <div className="value">{count}</div>
-        <div className="label">Unique missed questions</div>
+        <div className="label">Flagged for review</div>
       </div>
       {count > 0 ? (
         <>
           <div className="form-group">
-            <label htmlFor="missed-count">Questions this session</label>
+            <label htmlFor="flagged-count">Questions this session</label>
             <input
-              id="missed-count"
+              id="flagged-count"
               type="number"
               min={1}
               max={count}
@@ -41,11 +39,11 @@ export function MissedPage({ onStart }: MissedPageProps) {
             />
           </div>
           <button type="button" className="btn btn-primary" onClick={() => onStart(Math.min(sessionCount, count))}>
-            Review Missed Questions
+            Review Flagged Questions
           </button>
         </>
       ) : (
-        <p style={{ color: "var(--text-muted)" }}>No missed questions yet — complete a practice session first.</p>
+        <p style={{ color: "var(--text-muted)" }}>Flag questions during practice to build a personal review list.</p>
       )}
     </div>
   );

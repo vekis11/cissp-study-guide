@@ -1,5 +1,7 @@
 """
-Generates 1000+ CISSP-style scenario questions.
+Legacy scenario template builders (retained for reference).
+
+Active question bank: app.data.diverse.bank_builder (800+ unique items, bank-v7).
 
 Patterns aligned to public exam guidance (ISC2 outline, manager mindset):
 - Long vignettes with business context
@@ -899,4 +901,6 @@ def _validate_question(q: dict, action: str) -> bool:
 
 
 def get_all_questions() -> list[dict]:
-    return generate_all_questions(1050)
+    from app.data.diverse.bank_builder import build_diverse_bank
+
+    return build_diverse_bank()

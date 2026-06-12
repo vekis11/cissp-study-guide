@@ -28,6 +28,7 @@ class SessionRecord(Base):
     __tablename__ = "sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True, default="legacy")
     mode: Mapped[str] = mapped_column(String(32))
     session_type: Mapped[str] = mapped_column(String(32))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -60,7 +61,8 @@ class Attempt(Base):
 class UserSettings(Base):
     __tablename__ = "user_settings"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     practice_mode: Mapped[str] = mapped_column(String(16), default="newbie")
     daily_minutes: Mapped[int] = mapped_column(Integer, default=30)
     daily_questions: Mapped[int] = mapped_column(Integer, default=20)
@@ -68,3 +70,6 @@ class UserSettings(Base):
     exam_date: Mapped[str | None] = mapped_column(String(16), nullable=True)
     theme: Mapped[str] = mapped_column(String(16), default="dark")
     exam_alert_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    daily_prioritize_unseen: Mapped[bool] = mapped_column(Boolean, default=True)
+    daily_weak_domain_bias: Mapped[bool] = mapped_column(Boolean, default=True)
+    daily_avoid_repeats: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -1,3 +1,4 @@
+import { getUserId } from "./utils/userId";
 import type {
   Analytics,
   AnswerResult,
@@ -8,15 +9,26 @@ import type {
   SessionProgress,
   SessionType,
   Settings,
+  StudyPlanAdvice,
   SubmitResult,
 } from "./types";
 
 const BASE = "/api";
 
+function authHeaders(): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    "X-User-Id": getUserId(),
+  };
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      ...authHeaders(),
+      ...(options?.headers ?? {}),
+    },
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -26,16 +38,31 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; questions: number }>("/health"),
+  health: () =>
+    request<{
+      status: string;
+      questions: number;
+      version?: string;
+      cat_min?: number;
+      cat_max?: number;
+      cat_hours?: number;
+    }>("/health"),
   domains: () => request<DomainInfo[]>("/domains"),
   questionCounts: () => request<Record<string, number>>("/questions/count"),
+  studyPlan: () => request<StudyPlanAdvice>("/study-plan"),
   settings: {
     get: () => request<Settings>("/settings"),
     update: (data: Partial<Settings>) =>
       request<Settings>("/settings", { method: "PUT", body: JSON.stringify(data) }),
   },
   analytics: () => request<Analytics>("/analytics"),
+  exportAnalytics: async () => {
+    const res = await fetch(`${BASE}/analytics/export`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Export failed");
+    return res.text();
+  },
   missed: () => request<{ count: number; questions: unknown[] }>("/missed"),
+  flagged: () => request<{ count: number; questions: unknown[] }>("/flagged"),
   sessions: {
     start: (data: { session_type: SessionType; count: number; domain?: number }) =>
       request<Session>("/sessions/start", { method: "POST", body: JSON.stringify(data) }),

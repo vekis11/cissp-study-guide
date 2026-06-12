@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CountdownBanner } from "../components/CountdownBanner";
+import { getUserId, setUserId } from "../utils/userId";
 import type { Page, Settings } from "../types";
 
 interface SettingsPageProps {
@@ -18,6 +19,9 @@ const STUDY_PLANS = [
 export function SettingsPage({ settings, onUpdate, onNavigate }: SettingsPageProps) {
   const [saved, setSaved] = useState(false);
   const [local, setLocal] = useState(settings);
+  const [profileId, setProfileId] = useState(getUserId);
+  const [linkId, setLinkId] = useState("");
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
   const save = async (patch: Partial<Settings>) => {
     const updated = await onUpdate(patch);
@@ -32,6 +36,52 @@ export function SettingsPage({ settings, onUpdate, onNavigate }: SettingsPagePro
       <div className="card">
         <h2>Settings</h2>
         {saved && <p style={{ color: "var(--success)", marginBottom: "1rem" }}>Settings saved.</p>}
+
+        <h3 style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>Study Profile</h3>
+        <p className="sub" style={{ marginBottom: "0.75rem" }}>
+          Your anonymous ID ties progress on the server. Copy it to another device to sync phone and PC.
+        </p>
+        <div className="form-group">
+          <label htmlFor="profile-id">Profile ID</label>
+          <input id="profile-id" type="text" readOnly value={profileId} />
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={async () => {
+              await navigator.clipboard.writeText(profileId);
+              setProfileMsg("Profile ID copied.");
+              setTimeout(() => setProfileMsg(null), 2000);
+            }}
+          >
+            Copy ID
+          </button>
+        </div>
+        <div className="form-group">
+          <label htmlFor="link-profile">Link another device (paste profile ID)</label>
+          <input
+            id="link-profile"
+            type="text"
+            placeholder="Paste profile ID from phone or PC"
+            value={linkId}
+            onChange={(e) => setLinkId(e.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ marginBottom: "1rem" }}
+          onClick={() => {
+            setUserId(linkId);
+            setProfileId(getUserId());
+            setLinkId("");
+            setProfileMsg("Profile linked — reload to sync progress.");
+          }}
+        >
+          Link Profile
+        </button>
+        {profileMsg && <p style={{ color: "var(--success)", marginBottom: "1rem" }}>{profileMsg}</p>}
 
         <h3 style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>Practice Mode</h3>
         <div className="form-group">
@@ -77,6 +127,47 @@ export function SettingsPage({ settings, onUpdate, onNavigate }: SettingsPagePro
               onBlur={() => save({ daily_questions: local.daily_questions })}
             />
           </div>
+        </div>
+
+        <h3 style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>Daily Session Options</h3>
+        <div className="toggle-row">
+          <span>Prioritize unseen questions</span>
+          <button
+            type="button"
+            className={`toggle ${local.daily_prioritize_unseen ? "on" : ""}`}
+            onClick={() => {
+              const v = !local.daily_prioritize_unseen;
+              setLocal({ ...local, daily_prioritize_unseen: v });
+              save({ daily_prioritize_unseen: v });
+            }}
+            aria-label="Toggle prioritize unseen"
+          />
+        </div>
+        <div className="toggle-row">
+          <span>Bias weak domains (below 70%)</span>
+          <button
+            type="button"
+            className={`toggle ${local.daily_weak_domain_bias ? "on" : ""}`}
+            onClick={() => {
+              const v = !local.daily_weak_domain_bias;
+              setLocal({ ...local, daily_weak_domain_bias: v });
+              save({ daily_weak_domain_bias: v });
+            }}
+            aria-label="Toggle weak domain bias"
+          />
+        </div>
+        <div className="toggle-row">
+          <span>Avoid repeats until bank exhausted</span>
+          <button
+            type="button"
+            className={`toggle ${local.daily_avoid_repeats ? "on" : ""}`}
+            onClick={() => {
+              const v = !local.daily_avoid_repeats;
+              setLocal({ ...local, daily_avoid_repeats: v });
+              save({ daily_avoid_repeats: v });
+            }}
+            aria-label="Toggle avoid repeats"
+          />
         </div>
 
         <h3 style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>Study Plan</h3>
