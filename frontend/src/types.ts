@@ -5,6 +5,7 @@ export type Page =
   | "flagged"
   | "mock"
   | "domain"
+  | "flashcards"
   | "study"
   | "timed"
   | "analysis"
@@ -33,6 +34,9 @@ export interface Question {
   domain: number;
   domain_name: string;
   difficulty: string;
+  difficulty_level?: number | null;
+  topic_id?: string | null;
+  reference?: string | null;
   tags: string;
   stem: string;
   choice_a: string;
@@ -91,6 +95,7 @@ export interface Session {
   time_limit_seconds?: number | null;
   max_wrong_allowed?: number | null;
   wrong_count?: number;
+  pass_likelihood?: number | null;
   submitted: boolean;
 }
 
@@ -121,6 +126,7 @@ export interface SubmitResult {
   passed: boolean;
   grade_label: string;
   pass_threshold_scaled: number;
+  pass_likelihood?: number | null;
 }
 
 export interface WrongChoiceNote {
@@ -129,11 +135,20 @@ export interface WrongChoiceNote {
   why_wrong: string;
 }
 
+export interface ExplanationSection {
+  key: string;
+  title: string;
+  body: string;
+}
+
 export interface AnswerResult {
   is_correct: boolean;
   correct_choice: string;
   explanation: string;
   manager_brief?: string;
+  explanation_sections?: ExplanationSection[];
+  reference_sections?: ExplanationSection[];
+  trap?: string;
   approach_tips?: string[];
   wrong_choice_notes?: WrongChoiceNote[];
   score_percent: number;
@@ -170,6 +185,46 @@ export interface Analytics {
   domains: DomainStats[];
   recent_sessions: Session[];
   learning_curve: LearningCurvePoint[];
+  weak_topics: TopicStats[];
+  timing: TimingStats | null;
+  sm2_due_count: number;
+}
+
+export interface TopicStats {
+  topic_id: string;
+  title: string;
+  domain: number;
+  total_attempts: number;
+  correct_attempts: number;
+  pass_rate: number;
+  readiness: string;
+}
+
+export interface TimingStats {
+  avg_seconds_per_question: number;
+  total_timed_attempts: number;
+  avg_confidence: number | null;
+}
+
+export interface Flashcard {
+  id: string;
+  domain: number;
+  domain_name: string;
+  topic_id: string;
+  importance: string;
+  front: string;
+  back: string;
+}
+
+export interface DomainModule {
+  domain: number;
+  domain_name: string;
+  weight: number;
+  pass_rate: number;
+  readiness: string;
+  topic_count: number;
+  flashcard_count: number;
+  bank_coverage_percent: number;
 }
 
 export interface ReviewItem {
@@ -180,6 +235,9 @@ export interface ReviewItem {
   is_correct: boolean | null;
   explanation: string;
   manager_brief?: string;
+  explanation_sections?: ExplanationSection[];
+  reference_sections?: ExplanationSection[];
+  trap?: string;
   approach_tips?: string[];
   wrong_choice_notes?: WrongChoiceNote[];
   flagged: boolean;
@@ -198,7 +256,9 @@ export interface CurrentQuestion {
   is_timed_challenge?: boolean;
   wrong_count?: number;
   max_wrong_allowed?: number | null;
+  pass_likelihood?: number | null;
   timed_expired?: boolean;
+  exam_expired?: boolean;
   session?: Session;
 }
 
@@ -219,6 +279,7 @@ export interface StudyGuideSummary {
   coverage_percent: number;
   knowledge_questions: number;
   scenario_bank: number;
+  knowledge_per_topic?: number;
   scenarios_per_topic?: number;
 }
 
@@ -244,6 +305,8 @@ export interface GuideQuizTier {
   priority?: number;
   topic_count: number;
   question_count: number;
+  answered_count?: number;
+  remaining_count?: number;
   topic_ids?: string[];
   topic_titles?: string[];
 }

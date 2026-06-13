@@ -6,11 +6,14 @@ Mixing FIRST/NEXT/LEAST with the wrong answer breaks exam realism.
 ACTION_BEST = [
     "What is the BEST course of action?",
     "Which action is MOST appropriate?",
+    "Which control BEST mitigates the risk described?",
+    "Which response is MOST effective given the business constraints?",
     "Which option would a security leader choose as the PRIMARY focus?",
     "Which approach BEST balances security with business continuity?",
     "Which response BEST reduces organizational risk with minimal disruption?",
     "What is the BEST long-term solution rather than a one-time fix?",
     "Which decision BEST demonstrates due care?",
+    "What is the PRIMARY objective from a security management perspective?",
 ]
 
 ACTION_FIRST = [

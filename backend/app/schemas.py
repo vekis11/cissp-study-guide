@@ -24,6 +24,9 @@ class QuestionOut(BaseModel):
     domain: int
     domain_name: str
     difficulty: str
+    difficulty_level: int | None = None
+    topic_id: str | None = None
+    reference: str | None = None
     tags: str
     stem: str
     choice_a: str
@@ -57,6 +60,13 @@ class AnswerRequest(BaseModel):
     question_id: str
     selected_choice: str = Field(min_length=1, max_length=4, pattern="^[ABCD]+$")
     flagged: bool = False
+    time_spent_seconds: int | None = Field(default=None, ge=0, le=3600)
+    confidence: int | None = Field(default=None, ge=1, le=5)
+
+
+class FlagUpdateRequest(BaseModel):
+    question_id: str
+    flagged: bool
 
 
 class SubmitSessionRequest(BaseModel):
@@ -90,6 +100,8 @@ class SessionOut(BaseModel):
     time_limit_seconds: int | None = None
     max_wrong_allowed: int | None = None
     wrong_count: int = 0
+    theta_proxy: float | None = None
+    pass_likelihood: float | None = None
     submitted: bool
     attempts: list[AttemptOut] = []
 
@@ -123,6 +135,7 @@ class SubmitResult(BaseModel):
     passed: bool
     grade_label: str
     pass_threshold_scaled: int = 700
+    pass_likelihood: float | None = None
 
 
 class WrongChoiceNote(BaseModel):
@@ -131,11 +144,20 @@ class WrongChoiceNote(BaseModel):
     why_wrong: str
 
 
+class ExplanationSectionOut(BaseModel):
+    key: str
+    title: str
+    body: str
+
+
 class AnswerResult(BaseModel):
     is_correct: bool
     correct_choice: str
     explanation: str
     manager_brief: str = ""
+    explanation_sections: list[ExplanationSectionOut] = Field(default_factory=list)
+    reference_sections: list[ExplanationSectionOut] = Field(default_factory=list)
+    trap: str = ""
     approach_tips: list[str] = Field(default_factory=list)
     wrong_choice_notes: list[WrongChoiceNote] = Field(default_factory=list)
     score_percent: float
@@ -150,6 +172,9 @@ class ReviewItemOut(BaseModel):
     is_correct: bool | None
     explanation: str
     manager_brief: str = ""
+    explanation_sections: list[ExplanationSectionOut] = Field(default_factory=list)
+    reference_sections: list[ExplanationSectionOut] = Field(default_factory=list)
+    trap: str = ""
     approach_tips: list[str] = Field(default_factory=list)
     wrong_choice_notes: list[WrongChoiceNote] = Field(default_factory=list)
     flagged: bool
@@ -185,6 +210,43 @@ class StudyPlanOut(BaseModel):
     message: str
 
 
+class TopicStats(BaseModel):
+    topic_id: str
+    title: str
+    domain: int
+    total_attempts: int
+    correct_attempts: int
+    pass_rate: float
+    readiness: str
+
+
+class TimingStats(BaseModel):
+    avg_seconds_per_question: float
+    total_timed_attempts: int
+    avg_confidence: float | None = None
+
+
+class FlashcardOut(BaseModel):
+    id: str
+    domain: int
+    domain_name: str
+    topic_id: str
+    importance: str
+    front: str
+    back: str
+
+
+class DomainModuleOut(BaseModel):
+    domain: int
+    domain_name: str
+    weight: float
+    pass_rate: float
+    readiness: str
+    topic_count: int
+    flashcard_count: int
+    bank_coverage_percent: float
+
+
 class AnalyticsOut(BaseModel):
     overall_pass_rate: float
     overall_readiness: str
@@ -199,6 +261,9 @@ class AnalyticsOut(BaseModel):
     domains: list[DomainStats]
     recent_sessions: list[SessionOut]
     learning_curve: list[LearningCurvePoint] = Field(default_factory=list)
+    weak_topics: list[TopicStats] = Field(default_factory=list)
+    timing: TimingStats | None = None
+    sm2_due_count: int = 0
 
 
 class SettingsOut(BaseModel):
@@ -261,6 +326,8 @@ class StudyGuideSummaryOut(BaseModel):
     coverage_percent: float
     knowledge_questions: int
     scenario_bank: int
+    knowledge_per_topic: int = 1
+    scenarios_per_topic: int = 1
 
 
 class GuideQuizTierOut(BaseModel):
@@ -270,6 +337,8 @@ class GuideQuizTierOut(BaseModel):
     priority: int
     topic_count: int
     question_count: int
+    answered_count: int = 0
+    remaining_count: int = 0
     topic_ids: list[str] = Field(default_factory=list)
     topic_titles: list[str] = Field(default_factory=list)
 

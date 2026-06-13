@@ -5,15 +5,19 @@ from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import CORS_ORIGINS, FRONTEND_DIST
+from app.config import ADMIN_API_KEY, CORS_ORIGINS, FRONTEND_DIST
 from app.database import get_db
 from app.data.domains import get_domain_info, PASS_SCALED
 from app.models import Attempt, Question, SessionRecord, UserSettings
+from app.data.cheat_sheet.catalog import CHEAT_SHEET
 from app.schemas import (
     AnalyticsOut,
     AnswerRequest,
+    FlagUpdateRequest,
     AnswerResult,
     DomainInfo,
+    DomainModuleOut,
+    FlashcardOut,
     QuestionOut,
     SessionOut,
     SessionProgress,
@@ -26,6 +30,9 @@ from app.schemas import (
 )
 from app.seed import seed_database
 from app.services.analytics import build_analytics, export_analytics_csv
+from app.services.flashcards import build_flashcards
+from app.services.irt_cat import THETA_START, pass_likelihood, should_stop_theta, update_theta
+from app.services.spaced_repetition import update_review
 from app.services.cat_engine import (
     CAT_MAX_QUESTIONS,
     CAT_MIN_QUESTIONS,
@@ -147,6 +154,9 @@ def _question_out(q: Question) -> QuestionOut:
         domain=q.domain,
         domain_name=q.domain_name,
         difficulty=q.difficulty,
+        difficulty_level=q.difficulty_level,
+        topic_id=q.topic_id,
+        reference=q.reference,
         tags=q.tags,
         stem=q.stem,
         choice_a=q.choice_a,
@@ -165,6 +175,11 @@ def _grade_and_finalize(db: Session, session: SessionRecord) -> SubmitResult:
         if a.selected_choice and a.is_correct is None and a.question:
             a.is_correct = grade_answer(a.selected_choice, a.question.correct_choice)
 
+    if session.mode == "exam":
+        for a in attempts:
+            if a.selected_choice and a.is_correct is not None:
+                update_review(db, session.user_id, a.question_id, bool(a.is_correct), a.confidence)
+
     scaled, percent, correct, answered = compute_cissp_scaled(attempts)
     session.correct_count = correct
     session.score_percent = percent
@@ -172,6 +187,8 @@ def _grade_and_finalize(db: Session, session: SessionRecord) -> SubmitResult:
     session.total_questions = len([a for a in attempts if a.selected_choice])
     session.submitted = True
     session.completed_at = datetime.utcnow()
+    if session.theta_proxy is not None:
+        session.pass_likelihood = pass_likelihood(session.theta_proxy)
     db.commit()
 
     passed = passed_cissp(scaled)
@@ -182,21 +199,43 @@ def _grade_and_finalize(db: Session, session: SessionRecord) -> SubmitResult:
         passed=passed,
         grade_label=grade_label(scaled),
         pass_threshold_scaled=PASS_SCALED,
+        pass_likelihood=session.pass_likelihood,
     )
 
 
 def _append_cat_question(db: Session, session: SessionRecord, attempts: list[Attempt], last: Attempt) -> bool:
     answered = [a for a in attempts if a.selected_choice]
     correct = sum(1 for a in answered if a.is_correct)
-    if should_stop_cat(len(answered), correct) or len(answered) >= session.total_questions:
+    theta = session.theta_proxy if session.theta_proxy is not None else THETA_START
+    if last.question:
+        level = last.question.difficulty_level or 3
+        session.theta_proxy = update_theta(theta, bool(last.is_correct), level)
+        session.pass_likelihood = pass_likelihood(session.theta_proxy)
+
+    if (
+        should_stop_cat(len(answered), correct)
+        or should_stop_theta(len(answered), session.theta_proxy or THETA_START)
+        or len(answered) >= session.total_questions
+    ):
+        db.commit()
         return True
 
     exclude = {a.question_id for a in attempts}
     domain_counts = session_domain_counts(answered)
     last_diff = last.question.difficulty if last.question else "medium"
+    last_level = last.question.difficulty_level if last.question and last.question.difficulty_level else 3
     is_correct = bool(last.is_correct)
-    next_q = pick_next_cat_question(db, exclude, last_diff, is_correct, domain_counts)
+    next_q = pick_next_cat_question(
+        db,
+        exclude,
+        last_diff,
+        is_correct,
+        domain_counts,
+        theta=session.theta_proxy or THETA_START,
+        last_difficulty_level=last_level,
+    )
     if not next_q:
+        db.commit()
         return True
     db.add(Attempt(session_id=session.id, question_id=next_q.id))
     db.commit()
@@ -266,8 +305,8 @@ def study_plan(db: Session = Depends(get_db), user_id: str = Depends(get_user_id
 
 
 @app.get("/api/study-guide", response_model=StudyGuideOut)
-def study_guide(db: Session = Depends(get_db)):
-    return StudyGuideOut(**build_study_guide_payload(db))
+def study_guide(db: Session = Depends(get_db), user_id: str = Depends(get_user_id)):
+    return StudyGuideOut(**build_study_guide_payload(db, user_id))
 
 
 @app.get("/api/study-guide/coverage")
@@ -313,6 +352,34 @@ def flagged_questions(db: Session = Depends(get_db), user_id: str = Depends(get_
     }
 
 
+@app.get("/api/flashcards", response_model=list[FlashcardOut])
+def list_flashcards(domain: int | None = None, topic_id: str | None = None):
+    return [FlashcardOut(**c) for c in build_flashcards(domain, topic_id)]
+
+
+@app.get("/api/domains/{domain_id}/module", response_model=DomainModuleOut)
+def domain_module(domain_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_user_id)):
+    if domain_id not in range(1, 9):
+        raise HTTPException(400, "Domain must be 1-8")
+    analytics = build_analytics(db, user_id)
+    dom_stat = next((d for d in analytics.domains if d.domain == domain_id), None)
+    bank = next((b for b in analytics.domain_bank_coverage if b.domain == domain_id), None)
+    topics = [
+        s for dom in CHEAT_SHEET["domains"] if dom["domain"] == domain_id for s in dom.get("sections", [])
+    ]
+    cards = build_flashcards(domain_id)
+    return DomainModuleOut(
+        domain=domain_id,
+        domain_name=dom_stat.domain_name if dom_stat else "",
+        weight=dom_stat.weight if dom_stat else 0,
+        pass_rate=dom_stat.pass_rate if dom_stat else 0,
+        readiness=dom_stat.readiness if dom_stat else "Needs Focus",
+        topic_count=len(topics),
+        flashcard_count=len(cards),
+        bank_coverage_percent=bank.bank_coverage_percent if bank else 0,
+    )
+
+
 @app.post("/api/sessions/start", response_model=SessionOut)
 def start_session(
     req: StartSessionRequest,
@@ -334,6 +401,8 @@ def start_session(
             session_type=req.session_type,
             total_questions=max_q,
             domain_filter=None,
+            time_limit_seconds=CAT_TIME_SECONDS,
+            theta_proxy=THETA_START,
         )
         db.add(session)
         db.flush()
@@ -375,7 +444,7 @@ def start_session(
             raise HTTPException(400, "importance required for guide drill (must, high, or good)")
         questions = select_guide_drill_questions(db, req.importance, req.domain)
         if not questions:
-            raise HTTPException(404, "No scenario questions for this domain and priority tier")
+            raise HTTPException(404, "No study guide questions for this domain and priority tier")
     elif req.session_type == "timed_challenge":
         if req.duration_minutes is None or req.max_wrong is None:
             raise HTTPException(400, "duration_minutes and max_wrong required for timed challenge")
@@ -468,6 +537,10 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
         if len(answered) >= CAT_MIN_QUESTIONS:
             return {"complete": True, "session": _session_to_out(db, session), "cat_complete": True}
 
+    if session.session_type == "mock_exam" and not session.submitted and session.time_limit_seconds and _time_expired(session):
+        _grade_and_finalize(db, session)
+        return {"complete": True, "session": _session_to_out(db, session), "exam_expired": True}
+
     if session.session_type == "timed_challenge" and not session.submitted and _time_expired(session):
         _grade_and_finalize(db, session)
         return {"complete": True, "session": _session_to_out(db, session), "timed_expired": True}
@@ -479,8 +552,10 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
     time_limit = None
     seconds_remaining = None
     if session.session_type == "mock_exam":
-        time_limit = CAT_TIME_SECONDS
-        seconds_remaining = CAT_TIME_SECONDS
+        time_limit = session.time_limit_seconds or CAT_TIME_SECONDS
+        seconds_remaining = _seconds_remaining(session) if session.time_limit_seconds else CAT_TIME_SECONDS
+        if seconds_remaining is None:
+            seconds_remaining = CAT_TIME_SECONDS
     elif session.session_type == "timed_challenge" and session.time_limit_seconds:
         time_limit = session.time_limit_seconds
         seconds_remaining = _seconds_remaining(session)
@@ -499,6 +574,8 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
         "is_timed_challenge": session.session_type == "timed_challenge",
         "wrong_count": _wrong_count(attempts),
         "max_wrong_allowed": session.max_wrong_allowed,
+        "pass_likelihood": session.pass_likelihood,
+        "theta_proxy": session.theta_proxy,
     }
 
 
@@ -533,8 +610,13 @@ def answer_question(
     is_correct = grade_answer(normalized, q.correct_choice)
     attempt.selected_choice = normalized
     attempt.flagged = req.flagged
+    attempt.time_spent_seconds = req.time_spent_seconds
+    attempt.confidence = req.confidence
     attempt.answered_at = datetime.utcnow()
     attempt.is_correct = is_correct
+
+    if session.session_type != "mock_exam" and session.mode != "exam":
+        update_review(db, user_id, q.id, is_correct, req.confidence)
 
     hide_feedback = session.mode == "exam" and not session.submitted
     db.commit()
@@ -572,17 +654,47 @@ def answer_question(
             session_complete=session_complete,
         )
 
-    feedback = build_manager_feedback(q)
+    feedback = build_manager_feedback(q, normalized, is_correct)
     return AnswerResult(
         is_correct=is_correct,
         correct_choice=q.correct_choice,
         explanation=feedback["explanation"],
         manager_brief=feedback["manager_brief"],
+        explanation_sections=feedback.get("explanation_sections", []),
+        reference_sections=feedback.get("reference_sections", []),
+        trap=feedback.get("trap", ""),
         approach_tips=feedback["approach_tips"],
         wrong_choice_notes=feedback["wrong_choice_notes"],
         score_percent=0.0 if hide_live_score else percent,
         session_complete=session_complete,
     )
+
+
+@app.patch("/api/sessions/{session_id}/flag")
+def update_question_flag(
+    session_id: int,
+    req: FlagUpdateRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    session = db.query(SessionRecord).filter(SessionRecord.id == session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+    _verify_session_owner(session, user_id)
+    if session.submitted:
+        raise HTTPException(400, "Session already submitted")
+
+    attempt = (
+        db.query(Attempt)
+        .filter(Attempt.session_id == session_id, Attempt.question_id == req.question_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(404, "Question not in this session")
+
+    attempt.flagged = req.flagged
+    db.commit()
+    return {"question_id": req.question_id, "flagged": req.flagged}
 
 
 @app.post("/api/sessions/{session_id}/submit", response_model=SubmitResult)
@@ -616,7 +728,7 @@ def review_session(session_id: int, db: Session = Depends(get_db), user_id: str 
     for a in attempts:
         if not a.selected_choice:
             continue
-        feedback = build_manager_feedback(a.question)
+        feedback = build_manager_feedback(a.question, a.selected_choice, a.is_correct)
         results.append({
             "attempt_id": a.id,
             "question": _question_out(a.question).model_dump(),
@@ -625,6 +737,9 @@ def review_session(session_id: int, db: Session = Depends(get_db), user_id: str 
             "is_correct": a.is_correct,
             "explanation": feedback["explanation"],
             "manager_brief": feedback["manager_brief"],
+            "explanation_sections": feedback.get("explanation_sections", []),
+            "reference_sections": feedback.get("reference_sections", []),
+            "trap": feedback.get("trap", ""),
             "approach_tips": feedback["approach_tips"],
             "wrong_choice_notes": feedback["wrong_choice_notes"],
             "flagged": a.flagged,

@@ -6,9 +6,10 @@ import type { DomainInfo } from "../types";
 
 interface DomainTestPageProps {
   onStart: (domain: number, count: number) => void;
+  onOpenHub: (domain: number) => void;
 }
 
-export function DomainTestPage({ onStart }: DomainTestPageProps) {
+export function DomainTestPage({ onStart, onOpenHub }: DomainTestPageProps) {
   const [domains, setDomains] = useState<DomainInfo[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [count, setCount] = useState(20);
@@ -21,9 +22,9 @@ export function DomainTestPage({ onStart }: DomainTestPageProps) {
     <div className="page-enter">
       <div className="card card-spotlight">
         <PageHeader
-          eyebrow="Focused practice"
-          title="Domain mastery test"
-          subtitle="Drill one ISC2 domain at a time — weighted to match real exam emphasis."
+          eyebrow="8 ISC2 domains"
+          title="Domain modules"
+          subtitle="Each domain includes lessons, flashcards, practice quizzes, and mastery analytics."
         />
         <div className="form-group" style={{ maxWidth: 200 }}>
           <label htmlFor="domain-count">Questions per session</label>
@@ -44,7 +45,10 @@ export function DomainTestPage({ onStart }: DomainTestPageProps) {
             key={d.id}
             type="button"
             className={`domain-card domain-card--selectable ${selected === d.id ? "selected" : ""}`}
-            onClick={() => setSelected(d.id)}
+            onClick={() => {
+              setSelected(d.id);
+              onOpenHub(d.id);
+            }}
           >
             <span className="domain-card-num">D{d.id}</span>
             <h3>{d.name}</h3>

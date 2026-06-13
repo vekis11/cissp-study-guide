@@ -15,7 +15,7 @@ const ITEMS: { page: Page; label: string; icon: ReactNode }[] = [
   { page: "settings", label: "More", icon: <IconSettings size={20} /> },
 ];
 
-const HIDE_ON: Page[] = ["practice", "review", "privacy", "terms"];
+const HIDE_ON: Page[] = ["practice", "review", "privacy", "terms", "flashcards"];
 
 export function BottomNav({ page, onNavigate }: BottomNavProps) {
   if (HIDE_ON.includes(page)) return null;

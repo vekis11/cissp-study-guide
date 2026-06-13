@@ -175,8 +175,10 @@ export function ReviewPage({ sessionId, submitResult, onDone }: ReviewPageProps)
                   selectedChoice={r.selected_choice}
                   isMultiSelect={isMultiSelectQuestion(r.question)}
                   managerBrief={r.manager_brief ?? r.explanation}
+                  explanationSections={r.explanation_sections}
+                  referenceSections={r.reference_sections}
+                  trap={r.trap}
                   approachTips={r.approach_tips ?? []}
-                  wrongChoiceNotes={r.wrong_choice_notes ?? []}
                 />
               </div>
             )}

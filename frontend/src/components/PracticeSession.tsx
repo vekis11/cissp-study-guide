@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../api";
 
@@ -68,6 +68,15 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
   const [maxWrongAllowed, setMaxWrongAllowed] = useState<number | null>(null);
 
+  const [confidence, setConfidence] = useState(3);
+
+  const [passLikelihood, setPassLikelihood] = useState<number | null>(null);
+
+  const questionLoadedAt = useRef<number>(Date.now());
+  const sessionStartedAt = useRef<number>(Date.now());
+  const [questionElapsed, setQuestionElapsed] = useState(0);
+  const [sessionElapsed, setSessionElapsed] = useState(0);
+
 
 
   const isExam = mode === "exam";
@@ -97,6 +106,8 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
       grade_label: review.passed ? "Pass" : "Needs Improvement",
 
       pass_threshold_scaled: review.pass_threshold_scaled,
+
+      pass_likelihood: review.session.pass_likelihood ?? undefined,
 
     });
 
@@ -152,6 +163,10 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
       setQuestion(data.question!);
 
+      questionLoadedAt.current = Date.now();
+
+      setConfidence(3);
+
       setSelected(null);
 
       setSelectedMulti(new Set());
@@ -165,6 +180,8 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
       setWrongCount(data.wrong_count ?? 0);
 
       setMaxWrongAllowed(data.max_wrong_allowed ?? null);
+
+      if (data.pass_likelihood != null) setPassLikelihood(data.pass_likelihood);
 
       if (data.seconds_remaining != null) {
 
@@ -195,6 +212,19 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
     loadCurrent();
 
   }, [loadCurrent]);
+
+
+
+  useEffect(() => {
+    if (loading || !question) return;
+    const tick = () => {
+      setQuestionElapsed(Math.max(0, Math.floor((Date.now() - questionLoadedAt.current) / 1000)));
+      setSessionElapsed(Math.max(0, Math.floor((Date.now() - sessionStartedAt.current) / 1000)));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [loading, question, index]);
 
 
 
@@ -232,6 +262,12 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
   };
 
+  const formatShortTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  };
+
 
 
   const getChoiceText = (q: Question, letter: string) => {
@@ -254,6 +290,22 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
 
 
+  const handleToggleFlag = async () => {
+    if (!question) return;
+    const next = !flagged;
+    setFlagged(next);
+    if (selected) {
+      try {
+        await api.sessions.setFlag(sessionId, question.id, next);
+      } catch (e) {
+        setFlagged(!next);
+        setError(e instanceof Error ? e.message : "Could not update flag");
+      }
+    }
+  };
+
+
+
   const submitAnswer = async (choicePayload: string) => {
 
     if (!question || loading) return;
@@ -264,6 +316,8 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
     try {
 
+      const elapsed = Math.max(1, Math.round((Date.now() - questionLoadedAt.current) / 1000));
+
       const res = await api.sessions.answer(sessionId, {
 
         question_id: question.id,
@@ -271,6 +325,10 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
         selected_choice: choicePayload,
 
         flagged,
+
+        time_spent_seconds: elapsed,
+
+        confidence,
 
       });
 
@@ -524,11 +582,12 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
           </button>
 
+          {!isExam && (
           <button type="button" className="btn btn-secondary" style={{ marginTop: "0.75rem" }} onClick={handleExitClick}>
 
             Exit Session
-
           </button>
+          )}
 
         </div>
 
@@ -620,7 +679,21 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
             )}
 
-            {timeLeft !== null && <span className="timer">{formatTime(timeLeft)}</span>}
+            {isExam && passLikelihood != null && (
+
+              <span className="practice-pass-est">Est. pass {passLikelihood.toFixed(0)}%</span>
+
+            )}
+
+            {timeLeft !== null && <span className="timer timer-countdown">{formatTime(timeLeft)}</span>}
+
+            <span className="timer timer-question" title="Time on this question">
+              Q {formatShortTime(questionElapsed)}
+            </span>
+
+            <span className="timer timer-session" title="Total session time">
+              Session {formatShortTime(sessionElapsed)}
+            </span>
 
           </div>
 
@@ -642,7 +715,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
           <span className="tag">{question.difficulty}</span>
 
-          <span className="tag tag-scenario">Scenario</span>
+          <span className="tag">{question.tags.includes("knowledge-check") ? "Knowledge check" : "Scenario"}</span>
 
           {isMulti && <span className="tag tag-multi">Select {selectCount}</span>}
 
@@ -666,6 +739,38 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
 
 
+        {!isExam && !answered && (
+
+          <div className="confidence-picker">
+
+            <span className="confidence-label">Confidence</span>
+
+            {[1, 2, 3, 4, 5].map((n) => (
+
+              <button
+
+                key={n}
+
+                type="button"
+
+                className={`confidence-btn ${confidence === n ? "active" : ""}`}
+
+                onClick={() => setConfidence(n)}
+
+              >
+
+                {n}
+
+              </button>
+
+            ))}
+
+          </div>
+
+        )}
+
+
+
         {error && <div className="error-msg" style={{ marginBottom: "0.75rem" }}>{error}</div>}
 
 
@@ -673,19 +778,12 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
 
           <button
-
             type="button"
-
             className={`btn btn-secondary ${flagged ? "btn-primary" : ""}`}
-
-            onClick={() => setFlagged(!flagged)}
-
-            disabled={answered && !isExam && !!result}
-
+            onClick={() => void handleToggleFlag()}
+            disabled={loading}
           >
-
             {flagged ? "Flagged for review" : "Flag for review"}
-
           </button>
 
         </div>
@@ -819,6 +917,18 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
 
 
+        {showFeedback && question.reference && (
+
+          <p className="question-reference sub">
+
+            <strong>Reference:</strong> {question.reference}
+
+          </p>
+
+        )}
+
+
+
         {showFeedback && (
 
           <ManagerExplanation
@@ -835,9 +945,13 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
             managerBrief={result!.manager_brief ?? result!.explanation}
 
-            approachTips={result!.approach_tips ?? []}
+            explanationSections={result!.explanation_sections}
 
-            wrongChoiceNotes={result!.wrong_choice_notes ?? []}
+            referenceSections={result!.reference_sections}
+
+            trap={result!.trap}
+
+            approachTips={result!.approach_tips ?? []}
 
           />
 
@@ -845,7 +959,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
 
 
-        {!showFeedback && (
+        {!showFeedback && !isExam && (
 
           <button type="button" className="btn btn-secondary" style={{ marginTop: "1rem" }} onClick={handleExitClick}>
 

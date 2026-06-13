@@ -13,6 +13,9 @@ class Question(Base):
     domain: Mapped[int] = mapped_column(Integer, index=True)
     domain_name: Mapped[str] = mapped_column(String(128))
     difficulty: Mapped[str] = mapped_column(String(16), default="medium")
+    difficulty_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    topic_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    reference: Mapped[str | None] = mapped_column(String(256), nullable=True)
     tags: Mapped[str] = mapped_column(String(256), default="")
     stem: Mapped[str] = mapped_column(Text)
     choice_a: Mapped[str] = mapped_column(Text)
@@ -40,6 +43,8 @@ class SessionRecord(Base):
     domain_filter: Mapped[int | None] = mapped_column(Integer, nullable=True)
     time_limit_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_wrong_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    theta_proxy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pass_likelihood: Mapped[float | None] = mapped_column(Float, nullable=True)
     submitted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="session", cascade="all, delete-orphan")
@@ -53,6 +58,8 @@ class Attempt(Base):
     question_id: Mapped[str] = mapped_column(ForeignKey("questions.id"), index=True)
     selected_choice: Mapped[str | None] = mapped_column(String(8), nullable=True)
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    time_spent_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     answered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     flagged: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -75,3 +82,19 @@ class UserSettings(Base):
     daily_prioritize_unseen: Mapped[bool] = mapped_column(Boolean, default=True)
     daily_weak_domain_bias: Mapped[bool] = mapped_column(Boolean, default=True)
     daily_avoid_repeats: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class UserQuestionReview(Base):
+    """SM-2 spaced repetition state per user per question."""
+
+    __tablename__ = "user_question_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    question_id: Mapped[str] = mapped_column(String(64), index=True)
+    ease_factor: Mapped[float] = mapped_column(Float, default=2.5)
+    interval_days: Mapped[int] = mapped_column(Integer, default=0)
+    repetitions: Mapped[int] = mapped_column(Integer, default=0)
+    last_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_review_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

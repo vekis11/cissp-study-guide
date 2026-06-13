@@ -7,56 +7,8 @@ import re
 from app.data.cheat_sheet.catalog import CHEAT_SHEET
 from app.data.domains import DOMAIN_NAMES
 
-_WRONG_BY_DOMAIN: dict[int, list[str]] = {
-    1: [
-        "Defer the decision to technical staff without executive risk criteria.",
-        "Prioritize speed of delivery over documented governance and accountability.",
-        "Apply a one-size-fits-all control without business impact analysis.",
-        "Accept residual risk without management approval or monitoring.",
-    ],
-    2: [
-        "Let IT staff set classification levels without data owner approval.",
-        "Delete files normally and assume data is unrecoverable.",
-        "Share sensitive data broadly to reduce operational friction.",
-        "Skip sanitization because the media will be reused internally.",
-    ],
-    3: [
-        "Rely on a single control layer instead of defense in depth.",
-        "Use deprecated cryptography because it is faster to deploy.",
-        "Skip key management because encryption alone is sufficient.",
-        "Ignore physical controls when hardening logical security.",
-    ],
-    4: [
-        "Allow unencrypted management traffic on production networks.",
-        "Merge guest and corporate VLANs to simplify routing.",
-        "Disable logging to improve network performance.",
-        "Use WEP for wireless because it is widely supported.",
-    ],
-    5: [
-        "Grant standing administrator access to reduce help-desk tickets.",
-        "Treat password plus PIN as multi-factor authentication.",
-        "Share service account credentials across teams for convenience.",
-        "Skip recertification because roles rarely change.",
-    ],
-    6: [
-        "Run penetration tests weekly without scoping or approval.",
-        "Treat vulnerability scanning results as proof of exploitation.",
-        "Skip remediation tracking after assessment findings.",
-        "Use only automated tools without validation of control effectiveness.",
-    ],
-    7: [
-        "Begin eradication before preserving volatile forensic evidence.",
-        "Restore production systems before verifying malware removal.",
-        "Skip lessons learned to return to normal operations faster.",
-        "Store backups only on the same site as production systems.",
-    ],
-    8: [
-        "Add security testing only after production deployment.",
-        "Rely on client-side input validation alone for web apps.",
-        "Ship third-party libraries without composition analysis.",
-        "Use verbose error messages to speed developer debugging in production.",
-    ],
-}
+from app.data.diverse.choice_balance import balance_choice_set
+from app.data.diverse.stem_formats import shuffle_choices
 
 
 def _short_answer(text: str, max_len: int = 120) -> str:
@@ -97,18 +49,21 @@ def build_knowledge_questions() -> list[dict]:
         for section in domain_block["sections"]:
             topic_id = section["topic_id"]
             correct_text = _correct_from_section(section)
-            wrong_pool = [w for w in _WRONG_BY_DOMAIN[domain] if w != correct_text]
-            choices = [correct_text] + wrong_pool[:3]
-            while len(choices) < 4:
-                choices.append(f"Ignore {section['title']} until the next audit cycle.")
-            labels = ["A", "B", "C", "D"]
-            correct_idx = int(hashlib.sha1(topic_id.encode()).hexdigest(), 16) % 4
-            rotated = choices[correct_idx:] + choices[:correct_idx]
-            choices = rotated
+            balanced_correct, balanced_wrong = balance_choice_set(
+                correct_text,
+                [],
+                domain,
+                topic_id,
+            )
+            ca, cb, cc, cd, correct_letter = shuffle_choices(
+                balanced_correct,
+                balanced_wrong,
+                topic_id,
+            )
             stem = _stem_from_section(section)
             explanation = (
                 f"This aligns with the study guide topic \"{section['title']}\". "
-                f"{correct_text}"
+                f"{balanced_correct}"
             )
             questions.append(
                 {
@@ -119,11 +74,11 @@ def build_knowledge_questions() -> list[dict]:
                     "importance": section.get("importance", "high"),
                     "difficulty": "medium",
                     "stem": stem,
-                    "choice_a": choices[0],
-                    "choice_b": choices[1],
-                    "choice_c": choices[2],
-                    "choice_d": choices[3],
-                    "correct_choice": labels[correct_idx],
+                    "choice_a": ca,
+                    "choice_b": cb,
+                    "choice_c": cc,
+                    "choice_d": cd,
+                    "correct_choice": correct_letter,
                     "explanation": explanation,
                     "source_topic": section["title"],
                     "tags": f"knowledge-check,topic:{topic_id},cheat-sheet",

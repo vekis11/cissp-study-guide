@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.data.domains import DOMAIN_NAMES, DOMAIN_WEIGHTS, PASS_SCALED
 from app.models import Attempt, Question, SessionRecord, UserSettings
+from app.services.irt_cat import THETA_START, target_difficulty_level, update_theta
+from app.services.spaced_repetition import get_due_question_ids
 
 DIFFICULTY_ORDER = ["easy", "medium", "hard"]
 CAT_MIN_QUESTIONS = 125
@@ -97,6 +99,7 @@ def select_daily_questions(
         return []
 
     settings = settings or UserSettings(user_id=user_id)
+    due_ids = get_due_question_ids(db, user_id, limit=min(count // 2 + 5, 20))
     recent_ids = get_recent_daily_question_ids(db, user_id, sessions_back=5)
     answered_ids = get_distinct_answered_question_ids(db, user_id)
     weak_domains = get_weak_domains(db, user_id) if settings.daily_weak_domain_bias else set()
@@ -120,6 +123,14 @@ def select_daily_questions(
 
     selected: list[Question] = []
     used: set[str] = set()
+
+    if due_ids:
+        due_map = {q.id: q for q in db.query(Question).filter(Question.id.in_(due_ids)).all()}
+        for qid in due_ids:
+            if qid in due_map and len(selected) < count:
+                selected.append(due_map[qid])
+                used.add(qid)
+
     attempts = 0
     max_attempts = count * 50
 
@@ -208,6 +219,7 @@ def select_questions(
     domain: int | None = None,
     exclude_ids: set[str] | None = None,
     difficulty: str | None = None,
+    difficulty_level: int | None = None,
     cat_mode: bool = False,
     domain_counts: dict[int, int] | None = None,
 ) -> list[Question]:
@@ -219,6 +231,13 @@ def select_questions(
     if difficulty:
         query = query.filter(Question.difficulty == difficulty)
     pool = query.all()
+    if difficulty_level and pool:
+        near = [
+            q for q in pool
+            if q.difficulty_level is not None and abs(q.difficulty_level - difficulty_level) <= 1
+        ]
+        if near:
+            pool = near
     if not pool:
         return []
 
@@ -254,13 +273,28 @@ def pick_next_cat_question(
     last_difficulty: str,
     is_correct: bool,
     domain_counts: dict[int, int],
+    theta: float = THETA_START,
+    last_difficulty_level: int = 3,
 ) -> Question | None:
+    new_theta = update_theta(theta, is_correct, last_difficulty_level)
+    target_level = target_difficulty_level(new_theta)
     next_diff = next_cat_difficulty(last_difficulty, is_correct)
     batch = select_questions(
         db,
         1,
         exclude_ids=exclude_ids,
         difficulty=next_diff,
+        difficulty_level=target_level,
+        cat_mode=True,
+        domain_counts=domain_counts,
+    )
+    if batch:
+        return batch[0]
+    batch = select_questions(
+        db,
+        1,
+        exclude_ids=exclude_ids,
+        difficulty_level=target_level,
         cat_mode=True,
         domain_counts=domain_counts,
     )
@@ -322,7 +356,8 @@ def readiness_label(pass_rate: float, study_plan: str) -> str:
 
 
 def get_missed_question_ids(db: Session, user_id: str) -> list[str]:
-    """Spaced repetition: last attempt wrong, sorted oldest-first (most overdue)."""
+    """SM-2 due reviews plus last-wrong questions, most overdue first."""
+    due = get_due_question_ids(db, user_id, limit=100)
     attempts = (
         _attempts_for_user(db, user_id)
         .filter(Attempt.selected_choice.isnot(None))
@@ -340,7 +375,15 @@ def get_missed_question_ids(db: Session, user_id: str) -> list[str]:
             missed.append((qid, attempt.answered_at))
 
     missed.sort(key=lambda item: item[1])
-    return [qid for qid, _ in missed]
+    wrong_ids = [qid for qid, _ in missed]
+
+    merged: list[str] = []
+    seen: set[str] = set()
+    for qid in due + wrong_ids:
+        if qid not in seen:
+            seen.add(qid)
+            merged.append(qid)
+    return merged
 
 
 def get_flagged_question_ids(db: Session, user_id: str) -> list[str]:

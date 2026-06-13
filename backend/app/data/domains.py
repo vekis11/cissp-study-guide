@@ -1,19 +1,18 @@
 DOMAIN_NAMES = {
-    1: "Security and Risk Management",
+    1: "Security & Risk Management",
     2: "Asset Security",
-    3: "Security Architecture and Engineering",
-    4: "Communication and Network Security",
-    5: "Identity and Access Management",
-    6: "Security Assessment and Testing",
+    3: "Security Architecture & Engineering",
+    4: "Communication & Network Security",
+    5: "Identity & Access Management (IAM)",
+    6: "Security Assessment & Testing",
     7: "Security Operations",
     8: "Software Development Security",
 }
-
 DOMAIN_WEIGHTS = {1: 0.16, 2: 0.10, 3: 0.13, 4: 0.13, 5: 0.13, 6: 0.12, 7: 0.13, 8: 0.10}
 
 PASS_SCALED = 700
 MAX_SCALED = 1000
-BANK_VERSION = 9
+BANK_VERSION = 12
 MIN_QUESTION_COUNT = 800
 
 
