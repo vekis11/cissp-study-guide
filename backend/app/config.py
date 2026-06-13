@@ -23,3 +23,4 @@ if os.getenv("CORS_ALLOW_ALL", "").lower() in ("1", "true", "yes"):
     CORS_ORIGINS = ["*"]
 
 SERVE_STATIC = os.getenv("SERVE_STATIC", "true").lower() in ("1", "true", "yes")
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")

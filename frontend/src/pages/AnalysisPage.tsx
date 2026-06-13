@@ -193,6 +193,48 @@ export function AnalysisPage() {
         {view === "radar" && <DomainRadar domains={data.domains} />}
       </section>
 
+      {data.timing && (
+        <section className="glass-card chart-section">
+          <h2>Study pace</h2>
+          <p className="sub">
+            Average {data.timing.avg_seconds_per_question}s per question across {data.timing.total_timed_attempts}{" "}
+            timed attempts
+            {data.timing.avg_confidence != null ? ` · avg confidence ${data.timing.avg_confidence}/5` : ""}.
+          </p>
+        </section>
+      )}
+
+      {data.weak_topics?.length > 0 && (
+        <section className="glass-card chart-section">
+          <h2>Weakest topics</h2>
+          <p className="sub">Subdomain-level gaps from your attempt history — prioritize these in the study guide.</p>
+          <div className="session-table">
+            {data.weak_topics.map((t) => (
+              <div key={t.topic_id} className="session-table-row">
+                <div className="session-table-type">
+                  D{t.domain} · {t.title}
+                </div>
+                <div className="session-table-meta">{t.total_attempts} attempts</div>
+                <div className="session-table-scores">
+                  <span className="session-scaled">{t.pass_rate.toFixed(0)}%</span>
+                  <span className="session-raw">{t.readiness}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data.sm2_due_count > 0 && (
+        <section className="glass-card">
+          <h2>Spaced repetition</h2>
+          <p className="sub">
+            {data.sm2_due_count} question{data.sm2_due_count !== 1 ? "s" : ""} due for SM-2 review — use{" "}
+            <strong>Missed Questions</strong> or daily practice to clear the queue.
+          </p>
+        </section>
+      )}
+
       <section className="glass-card chart-section">
         <div className="section-head">
           <div>

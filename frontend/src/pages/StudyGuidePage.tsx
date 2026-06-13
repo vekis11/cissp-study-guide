@@ -7,6 +7,9 @@ import type { GuideQuizTier, ImportanceTier, StudyGuideData, TopicCoverage } fro
 
 interface StudyGuidePageProps {
   onStartGuideQuiz: (importance: ImportanceTier, domain?: number, questionCount?: number) => void;
+  onStartTopicDrill?: (topicId: string) => void;
+  onOpenFlashcards?: (domain: number, topicId: string) => void;
+  initialDomainFilter?: number;
 }
 
 const TIER_META: Record<
@@ -17,6 +20,13 @@ const TIER_META: Record<
   high: { marker: "🟡", label: "High Value", variant: "high", order: 2 },
   good: { marker: "🟢", label: "Good to Reinforce", variant: "good", order: 3 },
 };
+
+function tierProgressLabel(tier: GuideQuizTier) {
+  const answered = tier.answered_count ?? 0;
+  const total = tier.question_count;
+  const remaining = tier.remaining_count ?? Math.max(0, total - answered);
+  return `${answered}/${total} answered · ${remaining} left`;
+}
 
 function TierQuizButton({
   tier,
@@ -29,6 +39,9 @@ function TierQuizButton({
 }) {
   const meta = TIER_META[tier.importance as ImportanceTier] ?? TIER_META.high;
   if (tier.question_count === 0) return null;
+  const progressPct = tier.question_count
+    ? Math.round(((tier.answered_count ?? 0) / tier.question_count) * 100)
+    : 0;
 
   return (
     <button
@@ -41,8 +54,14 @@ function TierQuizButton({
       <span className="guide-tier-btn-copy">
         <span className="guide-tier-btn-label">{meta.label}</span>
         <span className="guide-tier-btn-meta">
-          {tier.question_count} scenario{tier.question_count !== 1 ? "s" : ""}
+          {tier.question_count} question{tier.question_count !== 1 ? "s" : ""}
           {domainLabel ? ` · ${domainLabel}` : " · all domains"}
+        </span>
+        <span className="guide-tier-btn-progress">
+          <span className="guide-tier-progress-bar" aria-hidden>
+            <span className="guide-tier-progress-fill" style={{ width: `${progressPct}%` }} />
+          </span>
+          {tierProgressLabel(tier)}
         </span>
       </span>
       <span className="guide-tier-btn-go">Start →</span>
@@ -50,10 +69,15 @@ function TierQuizButton({
   );
 }
 
-export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
+export function StudyGuidePage({
+  onStartGuideQuiz,
+  onStartTopicDrill,
+  onOpenFlashcards,
+  initialDomainFilter,
+}: StudyGuidePageProps) {
   const [data, setData] = useState<StudyGuideData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [domainFilter, setDomainFilter] = useState<number | "all">("all");
+  const [domainFilter, setDomainFilter] = useState<number | "all">(initialDomainFilter ?? "all");
   const [openDomain, setOpenDomain] = useState<number | null>(null);
   const [showReference, setShowReference] = useState(false);
 
@@ -88,7 +112,7 @@ export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
             <PageHeader
               eyebrow="Exam-focused study path"
               title="CISSP Study Guide"
-              subtitle="Manager-style scenario quizzes from the 800+ exam bank — grouped by Must Know, High Value, and Good to Reinforce tiers per domain."
+              subtitle="Knowledge-check quizzes weighted toward direct CBK recall, with one manager scenario per topic — grouped by Must Know, High Value, and Good to Reinforce."
             />
           </div>
           <div className="study-guide-hero-ring">
@@ -110,7 +134,7 @@ export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
             <h2>Recommended exam path</h2>
             <p className="sub">
               Run these in order across the full exam — same priority as the cheat sheet: red first, then yellow,
-              then green.
+              then green. Progress shows how many tier questions you have answered vs remaining.
             </p>
           </div>
         </div>
@@ -128,8 +152,9 @@ export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
       <section className="card">
         <h2>Domain quizzes by priority</h2>
         <p className="sub">
-          Each button runs <strong>manager-style scenarios</strong> for every topic in that tier ({summary.scenarios_per_topic ?? 2} per
-          topic) — same format as daily practice and mock CAT. Domain 1 (16% weight) is your highest-yield starting point.
+          Each button runs a <strong>knowledge-check weighted</strong> set for every topic in that tier (
+          {summary.knowledge_per_topic ?? 1} knowledge + {summary.scenarios_per_topic ?? 1} scenario per topic).
+          Domain 1 (16% weight) is your highest-yield starting point.
         </p>
         <div className="domain-filter-row">
           <button
@@ -186,7 +211,8 @@ export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
               return (
                 <div key={tier.importance} className="guide-tier-topic-block">
                   <h4>
-                    {meta.marker} {meta.label}
+                    {meta.marker} {meta.label}{" "}
+                    <span className="guide-tier-topic-progress">({tierProgressLabel(tier)})</span>
                   </h4>
                   <ul>
                     {(tier.topic_titles ?? []).map((title) => (
@@ -263,10 +289,30 @@ export function StudyGuidePage({ onStartGuideQuiz }: StudyGuidePageProps) {
                                   <div className="study-topic-header-static">
                                     <span>{section.title}</span>
                                     {cov?.fully_tested && (
-                                      <span className="coverage-ok">✓ scenarios linked</span>
+                                      <span className="coverage-ok">✓ quiz linked</span>
                                     )}
                                   </div>
                                   <p className="study-ref-content">{section.content}</p>
+                                  <div className="topic-action-row">
+                                    {onStartTopicDrill && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={() => onStartTopicDrill(section.topic_id)}
+                                      >
+                                        Mini-quiz
+                                      </button>
+                                    )}
+                                    {onOpenFlashcards && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={() => onOpenFlashcards(domain.domain, section.topic_id)}
+                                      >
+                                        Flashcard
+                                      </button>
+                                    )}
+                                  </div>
                                   {section.scenarios?.map((sc) => (
                                     <div key={sc.prompt} className="scenario-box">
                                       <strong>Scenario:</strong> {sc.prompt}

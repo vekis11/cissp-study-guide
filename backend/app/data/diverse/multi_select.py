@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import random
 
-from app.data.diverse.stem_formats import shuffle_choices
+from app.data.diverse.choice_balance import balance_choice_set
 
 MULTI_STEM_SUFFIXES = (
     "Which of the following actions are appropriate? (Select TWO.)",
@@ -41,16 +41,20 @@ def format_multi_stem(narrative: str, industry: str, topic: str, slot: int) -> s
 
 def build_multi_question(spec: dict, kernel_idx: int) -> dict | None:
     """One multi-select item per kernel — two correct managerial answers."""
+    domain = spec["domain"]
     seed = f"multi-{kernel_idx}-{spec['correct'][:40]}"
+    balanced_correct, balanced_wrong = balance_choice_set(
+        spec["correct"], spec["wrong"], domain, seed
+    )
     companion = _companion_correct(spec, seed)
-    choices = [spec["correct"], companion] + spec["wrong"][:2]
+    choices = [balanced_correct, companion] + balanced_wrong[:2]
     if len(choices) < 4:
         return None
 
     rng = random.Random(seed)
     rng.shuffle(choices)
     letters = ["A", "B", "C", "D"]
-    primary_letter = letters[choices.index(spec["correct"])]
+    primary_letter = letters[choices.index(balanced_correct)]
     companion_letter = letters[choices.index(companion)]
     correct_choice = "".join(sorted({primary_letter, companion_letter}))
 

@@ -4,15 +4,56 @@ from __future__ import annotations
 
 import hashlib
 
+from app.data.cheat_sheet.topic_mapping import TOPIC_SCENARIO_MAP
 from app.data.domains import DOMAIN_NAMES, DOMAIN_WEIGHTS
+from app.data.cheat_sheet.knowledge_builder import build_knowledge_questions
+from app.data.diverse.choice_balance import balance_choice_set, is_length_giveaway
+from app.data.diverse.knowledge_stems import knowledge_stem
 from app.data.diverse.multi_select import build_multi_question
 from app.data.diverse.stem_formats import format_stem, shuffle_choices
 from app.data.diverse.topic_specs import TOPIC_SPECS
 from app.data.scenario_templates_premium import PREMIUM_QUESTIONS
 
-BANK_TAG = "bank-v9"
+from app.services.cissp_exam_rules import DIFFICULTY_TO_BLOOM
+
+BANK_TAG = "bank-v12"
+KNOWLEDGE_SLOT = 7
 FORMATS_PER_KERNEL = 8
 MIN_BANK_SIZE = 800
+
+DIFFICULTY_TO_LEVEL = DIFFICULTY_TO_BLOOM
+DOMAIN_REFERENCES = {
+    1: "ISC2 CBK Domain 1; NIST SP 800-30; ISO 27001",
+    2: "ISC2 CBK Domain 2; NIST SP 800-88",
+    3: "ISC2 CBK Domain 3; NIST SP 800-53",
+    4: "ISC2 CBK Domain 4; NIST SP 800-207",
+    5: "ISC2 CBK Domain 5; NIST SP 800-63",
+    6: "ISC2 CBK Domain 6; ISO 27001 A.8",
+    7: "ISC2 CBK Domain 7; NIST SP 800-61",
+    8: "ISC2 CBK Domain 8; OWASP ASVS",
+}
+
+
+def _tag_to_topic_id() -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for topic_id, cfg in TOPIC_SCENARIO_MAP.items():
+        for tag in cfg.get("tags", []):
+            mapping[tag] = topic_id
+    return mapping
+
+
+_TAG_TOPIC = _tag_to_topic_id()
+
+
+def _question_meta(spec: dict, domain: int) -> dict:
+    tag = spec.get("tag", "")
+    topic_id = _TAG_TOPIC.get(tag, tag or spec["topic"][:64])
+    diff = spec.get("difficulty", "hard")
+    return {
+        "topic_id": topic_id,
+        "difficulty_level": DIFFICULTY_TO_LEVEL.get(diff, 3),
+        "reference": DOMAIN_REFERENCES.get(domain, "ISC2 CBK"),
+    }
 
 
 def _qid(domain: int, seed: str) -> str:
@@ -29,15 +70,24 @@ def _kernel_questions(spec: dict, kernel_idx: int) -> list[dict]:
     difficulty = spec.get("difficulty", "hard")
 
     for slot in range(FORMATS_PER_KERNEL):
-        stem = format_stem(slot, narrative, industry, topic)
-        seed = f"{kernel_idx}-{slot}-{stem[:80]}"
+        seed = f"{kernel_idx}-{slot}-{topic[:40]}"
+        balanced_correct, balanced_wrong = balance_choice_set(
+            spec["correct"], spec["wrong"], domain, seed
+        )
+        if slot == KNOWLEDGE_SLOT:
+            stem = knowledge_stem(topic, seed)
+            q_type = "knowledge-check"
+        else:
+            stem = format_stem(slot, narrative, industry, topic)
+            q_type = "scenario"
         ca, cb, cc, cd, correct = shuffle_choices(
-            spec["correct"],
-            spec["wrong"],
-            seed,
+            balanced_correct,
+            balanced_wrong,
+            seed + balanced_correct,
         )
         qid = _qid(domain, seed + spec["correct"])
-        tags = f"diverse,manager,scenario,{BANK_TAG},{spec.get('tag', 'isc2')}"
+        tags = f"diverse,manager,{q_type},{BANK_TAG},{spec.get('tag', 'isc2')}"
+        meta = _question_meta(spec, domain)
         questions.append({
             "id": qid,
             "domain": domain,
@@ -52,6 +102,7 @@ def _kernel_questions(spec: dict, kernel_idx: int) -> list[dict]:
             "correct_choice": correct,
             "explanation": spec["explanation"],
             "source_topic": topic,
+            **meta,
         })
     multi = build_multi_question(spec, kernel_idx)
     if multi:
@@ -76,6 +127,7 @@ def _kernel_questions(spec: dict, kernel_idx: int) -> list[dict]:
                 "managerial action — partial selections are incorrect."
             ),
             "source_topic": topic,
+            **_question_meta(spec, domain),
         })
     return questions
 
@@ -90,10 +142,21 @@ def _dedupe_questions(questions: list[dict]) -> list[dict]:
         stem_key = hashlib.sha256(q["stem"].encode()).hexdigest()
         if stem_key in seen_stems:
             continue
-        if len(q["stem"]) < 60 or len(q["stem"]) > 1200:
+        if len(q["stem"]) < 35 or len(q["stem"]) > 1200:
             continue
         choices = {q["choice_a"], q["choice_b"], q["choice_c"], q["choice_d"]}
         if len(choices) < 4:
+            continue
+        correct_letter = q["correct_choice"]
+        letter_map = {
+            "A": q["choice_a"],
+            "B": q["choice_b"],
+            "C": q["choice_c"],
+            "D": q["choice_d"],
+        }
+        correct_text = letter_map.get(correct_letter, "")
+        wrong_texts = [v for k, v in letter_map.items() if k != correct_letter]
+        if is_length_giveaway(correct_text, wrong_texts):
             continue
         seen_ids.add(q["id"])
         seen_stems.add(stem_key)
@@ -109,11 +172,23 @@ def _tag_premium(q: dict) -> dict:
 
 
 def build_diverse_bank() -> list[dict]:
-    """Assemble premium hand-crafted items plus 8 format variants per topic kernel."""
+    """Assemble premium items, scenario + knowledge-check variants, and cheat-sheet knowledge bank."""
     questions: list[dict] = [_tag_premium(dict(q)) for q in PREMIUM_QUESTIONS]
 
     for idx, spec in enumerate(TOPIC_SPECS):
         questions.extend(_kernel_questions(spec, idx))
+
+    for kq in build_knowledge_questions():
+        kq = dict(kq)
+        importance = kq.pop("importance", None)
+        tags = kq.get("tags", "")
+        if importance:
+            tags = f"{tags},importance:{importance}"
+        kq["tags"] = f"{tags},{BANK_TAG}".strip(",")
+        if not kq.get("reference"):
+            kq["reference"] = DOMAIN_REFERENCES.get(kq["domain"], "ISC2 CBK")
+        kq["difficulty_level"] = DIFFICULTY_TO_LEVEL.get(kq.get("difficulty", "medium"), 3)
+        questions.append(kq)
 
     unique = _dedupe_questions(questions)
     if len(unique) < MIN_BANK_SIZE:

@@ -20,7 +20,7 @@ export function MissedPage({ onStart }: MissedPageProps) {
     <div className="card">
       <h2>Missed Questions</h2>
       <p className="sub">
-        Spaced repetition review — most overdue missed questions appear first so you revisit them before newer mistakes.
+        SM-2 spaced repetition — due reviews surface first, then oldest missed questions.
       </p>
       {error && <div className="error-msg">{error}</div>}
       <div className="stat-box" style={{ marginBottom: "1rem" }}>

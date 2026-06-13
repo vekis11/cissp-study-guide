@@ -4,16 +4,9 @@ from __future__ import annotations
 
 import random
 
-ACTION_BY_SLOT = [
-    "What should you do FIRST?",
-    "Which course of action is BEST?",
-    "Which option is MOST appropriate?",
-    "Which response should take PRIORITY?",
-    "What is the NEXT step?",
-    "Which action is LEAST appropriate?",
-    "What represents the GREATEST concern from a governance perspective?",
-    "Which decision BEST demonstrates due care?",
-]
+from app.services.cissp_exam_rules import DIFFICULTY_TO_BLOOM, STEM_ACTIONS
+
+ACTION_BY_SLOT = list(STEM_ACTIONS)
 
 
 def action_for_slot(slot: int) -> str:

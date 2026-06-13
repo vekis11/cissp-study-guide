@@ -10,7 +10,6 @@ import {
   IconFlag,
   IconMissed,
   IconSettings,
-  IconShield,
   IconDaily,
   IconSpark,
   IconTarget,
@@ -62,10 +61,6 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
           <div className="home-hero-copy">
             <div className="home-brand-row">
               <TemTechLogo size={56} variant="stacked" />
-              <span className="home-pill">
-                <IconShield size={14} />
-                ISC2 April 2024
-              </span>
             </div>
             <p className="eyebrow">CISSP Study Companion</p>
             <h1 className="home-title">
@@ -187,20 +182,20 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
             onClick={() => onNavigate("timed")}
           />
           <FeatureCard
+            title="Domain Modules"
+            description="8 domains · lessons · flashcards · mini-quizzes"
+            icon={<IconTarget size={22} />}
+            variant="violet"
+            onClick={() => onNavigate("domain")}
+          />
+          <FeatureCard
             title="Study Guide"
-            description="70 cheat-sheet topics with knowledge checks"
+            description="70 cheat-sheet topics with scenario drills"
             icon={<IconBook size={22} />}
             variant="accent"
             size="wide"
             badge="New"
             onClick={() => onNavigate("study")}
-          />
-          <FeatureCard
-            title="Domain Test"
-            description="Focus on one of the 8 ISC2 domains"
-            icon={<IconTarget size={22} />}
-            variant="violet"
-            onClick={() => onNavigate("domain")}
           />
           <FeatureCard
             title="Analysis"

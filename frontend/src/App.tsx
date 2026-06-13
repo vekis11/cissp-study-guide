@@ -10,6 +10,8 @@ import { api } from "./api";
 import { HomePage } from "./pages/HomePage";
 import { MockExamPage } from "./pages/MockExamPage";
 import { DomainTestPage } from "./pages/DomainTestPage";
+import { DomainHubPage } from "./pages/DomainHubPage";
+import { FlashcardsPage } from "./pages/FlashcardsPage";
 import { MissedPage } from "./pages/MissedPage";
 import { FlaggedPage } from "./pages/FlaggedPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
@@ -38,6 +40,11 @@ export default function App() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [sessionMode, setSessionMode] = useState("newbie");
   const [startError, setStartError] = useState<string | null>(null);
+
+  const [activeDomain, setActiveDomain] = useState<number | null>(null);
+  const [flashcardsDomain, setFlashcardsDomain] = useState<number | undefined>();
+  const [flashcardsTopicId, setFlashcardsTopicId] = useState<string | undefined>();
+  const [studyDomainFilter, setStudyDomainFilter] = useState<number | undefined>();
 
   const startSession = async (
     type: SessionType,
@@ -131,15 +138,54 @@ export default function App() {
           />
         )}
 
-        {page === "domain" && (
-          <DomainTestPage onStart={(domain, count) => startSession("domain_test", count, domain)} />
+        {page === "domain" && activeDomain && (
+          <DomainHubPage
+            domain={activeDomain}
+            onBack={() => setActiveDomain(null)}
+            onStartPractice={(domain, count) => startSession("domain_test", count, domain)}
+            onStartFlashcards={(domain) => {
+              setFlashcardsDomain(domain);
+              setFlashcardsTopicId(undefined);
+              setPage("flashcards");
+            }}
+            onOpenStudyGuide={() => {
+              setStudyDomainFilter(activeDomain);
+              setPage("study");
+            }}
+          />
+        )}
+
+        {page === "domain" && !activeDomain && (
+          <DomainTestPage
+            onOpenHub={setActiveDomain}
+            onStart={(domain, count) => startSession("domain_test", count, domain)}
+          />
+        )}
+
+        {page === "flashcards" && (
+          <FlashcardsPage
+            domain={flashcardsDomain}
+            topicId={flashcardsTopicId}
+            onBack={() => {
+              setFlashcardsDomain(undefined);
+              setFlashcardsTopicId(undefined);
+              setPage(activeDomain ? "domain" : "study");
+            }}
+          />
         )}
 
         {page === "study" && (
           <StudyGuidePage
+            initialDomainFilter={studyDomainFilter}
             onStartGuideQuiz={(importance, domain, questionCount) =>
               startSession("guide_drill", questionCount ?? 50, domain, undefined, importance)
             }
+            onStartTopicDrill={(topicId) => startSession("topic_drill", 15, undefined, topicId)}
+            onOpenFlashcards={(domain, topicId) => {
+              setFlashcardsDomain(domain);
+              setFlashcardsTopicId(topicId);
+              setPage("flashcards");
+            }}
           />
         )}
 

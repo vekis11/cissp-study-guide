@@ -4,6 +4,8 @@ import type {
   AnswerResult,
   CurrentQuestion,
   DomainInfo,
+  DomainModule,
+  Flashcard,
   ImportanceTier,
   ReviewItem,
   Session,
@@ -50,6 +52,14 @@ export const api = {
       cat_hours?: number;
     }>("/health"),
   domains: () => request<DomainInfo[]>("/domains"),
+  domainModule: (domainId: number) => request<DomainModule>(`/domains/${domainId}/module`),
+  flashcards: (params?: { domain?: number; topic_id?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.domain) q.set("domain", String(params.domain));
+    if (params?.topic_id) q.set("topic_id", params.topic_id);
+    const qs = q.toString();
+    return request<Flashcard[]>(`/flashcards${qs ? `?${qs}` : ""}`);
+  },
   questionCounts: () => request<Record<string, number>>("/questions/count"),
   studyPlan: () => request<StudyPlanAdvice>("/study-plan"),
   studyGuide: () => request<StudyGuideData>("/study-guide"),
@@ -83,8 +93,19 @@ export const api = {
     get: (id: number) => request<Session>(`/sessions/${id}`),
     progress: (id: number) => request<SessionProgress>(`/sessions/${id}/progress`),
     current: (id: number) => request<CurrentQuestion>(`/sessions/${id}/current`),
-    answer: (id: number, data: { question_id: string; selected_choice: string; flagged?: boolean }) =>
+    answer: (id: number, data: {
+      question_id: string;
+      selected_choice: string;
+      flagged?: boolean;
+      time_spent_seconds?: number;
+      confidence?: number;
+    }) =>
       request<AnswerResult>(`/sessions/${id}/answer`, { method: "POST", body: JSON.stringify(data) }),
+    setFlag: (id: number, questionId: string, flagged: boolean) =>
+      request<{ question_id: string; flagged: boolean }>(`/sessions/${id}/flag`, {
+        method: "PATCH",
+        body: JSON.stringify({ question_id: questionId, flagged }),
+      }),
     submit: (id: number) => request<SubmitResult>(`/sessions/${id}/submit`, { method: "POST", body: JSON.stringify({}) }),
     review: (id: number) =>
       request<{

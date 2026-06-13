@@ -7,10 +7,10 @@ interface MockExamPageProps {
 }
 
 const EXAM_FACTS = [
-  "Adaptive difficulty — questions added one at a time",
-  "Stops at 125+ when confidence is reached, or continues to 150 max",
+  "Adaptive difficulty with IRT-style ability tracking (theta)",
+  "Stops at 125+ when pass likelihood is confident, or continues to 150 max",
   "Manager-style scenarios — leadership decisions, not configs",
-  "Scaled score 0–1000 (700 to pass) with deferred grading",
+  "3-hour server-enforced timer · scaled score 0–1000 (700 to pass)",
 ];
 
 export function MockExamPage({ onStart }: MockExamPageProps) {
