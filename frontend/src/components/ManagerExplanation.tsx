@@ -39,31 +39,46 @@ function sectionClass(key: string, isCorrect: boolean): string {
       : "explanation-block explanation-block--your-pick";
   }
   if (key === "correct_answer") return "explanation-block explanation-block--answer";
+  if (key === "approach_hint") return "explanation-block explanation-block--hint";
   if (key === "distractors") return "explanation-block explanation-block--distractors";
-  if (key === "domain" || key === "principle") return "explanation-block explanation-block--meta";
+  if (key === "domain" || key === "principle" || key === "cognitive_level") {
+    return "explanation-block explanation-block--meta";
+  }
   if (key === "manager_lens") return "explanation-block explanation-block--lens";
   if (key === "watch_out") return "explanation-block explanation-block--watch-out";
   return "explanation-block";
 }
 
 function DistractorBody({ body }: { body: string }) {
-  const blocks = body.split(/\n\n+/);
+  const lines = body.split("\n").filter((line) => line.trim());
   return (
     <div className="distractor-briefs">
-      {blocks.map((block) => {
-        const nl = block.indexOf("\n");
-        if (nl === -1) return <p key={block.slice(0, 8)} className="distractor-brief">{block}</p>;
-        const letter = block.slice(0, nl).trim();
-        const lines = block.slice(nl + 1).split("\n");
-        return (
-          <div key={letter} className="distractor-brief">
-            <strong className="distractor-letter">{letter}</strong>
-            {lines.map((line) => (
-              <p key={line.slice(0, 20)} className="distractor-line">
+      {lines.map((line) => {
+        const emDash = line.indexOf(" — ");
+        if (emDash === -1) {
+          const nl = line.indexOf("\n");
+          if (nl === -1) {
+            return (
+              <p key={line.slice(0, 24)} className="distractor-line">
                 {line}
               </p>
-            ))}
-          </div>
+            );
+          }
+        }
+        if (emDash !== -1) {
+          const letter = line.slice(0, emDash).trim();
+          const reason = line.slice(emDash + 3).trim();
+          return (
+            <div key={letter} className="distractor-brief">
+              <strong className="distractor-letter">{letter}</strong>
+              <p className="distractor-line">{reason}</p>
+            </div>
+          );
+        }
+        return (
+          <p key={line.slice(0, 24)} className="distractor-line">
+            {line}
+          </p>
         );
       })}
     </div>

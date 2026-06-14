@@ -112,7 +112,7 @@ export function StudyGuidePage({
             <PageHeader
               eyebrow="Exam-focused study path"
               title="CISSP Study Guide"
-              subtitle="Knowledge-check quizzes weighted toward direct CBK recall, with one manager scenario per topic — grouped by Must Know, High Value, and Good to Reinforce."
+              subtitle="Direct CISSP-format questions from the study guide — Must Know, High Value, and Good to Reinforce tiers across all domains."
             />
           </div>
           <div className="study-guide-hero-ring">
@@ -152,9 +152,8 @@ export function StudyGuidePage({
       <section className="card">
         <h2>Domain quizzes by priority</h2>
         <p className="sub">
-          Each button runs a <strong>knowledge-check weighted</strong> set for every topic in that tier (
-          {summary.knowledge_per_topic ?? 1} knowledge + {summary.scenarios_per_topic ?? 1} scenario per topic).
-          Domain 1 (16% weight) is your highest-yield starting point.
+          Each button runs a <strong>direct CISSP-format</strong> question set for every topic in that tier,
+          built from the study guide and reference samples — same style as classic exam items.
         </p>
         <div className="domain-filter-row">
           <button

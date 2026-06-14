@@ -31,21 +31,22 @@ from app.schemas import (
 from app.seed import seed_database
 from app.services.analytics import build_analytics, export_analytics_csv
 from app.services.flashcards import build_flashcards
-from app.services.irt_cat import THETA_START, pass_likelihood, should_stop_theta, update_theta
+from app.services.irt_cat import THETA_START, pass_likelihood, update_theta
 from app.services.spaced_repetition import update_review
 from app.services.cat_engine import (
     CAT_MAX_QUESTIONS,
     CAT_MIN_QUESTIONS,
     CAT_TIME_SECONDS,
+    adaptive_target_total,
     compute_score,
     get_bank_coverage,
     get_flagged_question_ids,
     get_missed_question_ids,
+    pick_first_adaptive_question,
     pick_next_cat_question,
-    select_daily_questions,
-    select_questions,
+    resolve_adaptive_pool_ids,
     session_domain_counts,
-    should_stop_cat,
+    should_stop_adaptive_session,
 )
 from app.services.answer_key import (
     grade_answer,
@@ -55,11 +56,7 @@ from app.services.answer_key import (
 )
 from app.services.grading import compute_cissp_scaled, grade_label, passed_cissp
 from app.services.manager_explanation import build_manager_feedback
-from app.services.study_guide import (
-    build_study_guide_payload,
-    select_guide_drill_questions,
-    select_topic_drill_questions,
-)
+from app.services.study_guide import build_study_guide_payload
 from app.services.study_plan import build_study_plan
 from app.static_files import mount_frontend
 from app.user_context import get_user_id
@@ -203,7 +200,14 @@ def _grade_and_finalize(db: Session, session: SessionRecord) -> SubmitResult:
     )
 
 
-def _append_cat_question(db: Session, session: SessionRecord, attempts: list[Attempt], last: Attempt) -> bool:
+def _append_adaptive_question(
+    db: Session,
+    session: SessionRecord,
+    attempts: list[Attempt],
+    last: Attempt,
+    user_id: str,
+) -> bool:
+    """Append next adaptive item or signal session question stream is complete."""
     answered = [a for a in attempts if a.selected_choice]
     correct = sum(1 for a in answered if a.is_correct)
     theta = session.theta_proxy if session.theta_proxy is not None else THETA_START
@@ -212,11 +216,26 @@ def _append_cat_question(db: Session, session: SessionRecord, attempts: list[Att
         session.theta_proxy = update_theta(theta, bool(last.is_correct), level)
         session.pass_likelihood = pass_likelihood(session.theta_proxy)
 
-    if (
-        should_stop_cat(len(answered), correct)
-        or should_stop_theta(len(answered), session.theta_proxy or THETA_START)
-        or len(answered) >= session.total_questions
+    pool_ids = resolve_adaptive_pool_ids(
+        db,
+        session.session_type,
+        user_id,
+        domain=session.domain_filter,
+        topic_id=session.topic_id,
+        guide_importance=session.guide_importance,
+    )
+
+    if should_stop_adaptive_session(
+        session.session_type,
+        len(answered),
+        correct,
+        session.total_questions,
+        session.theta_proxy or THETA_START,
     ):
+        db.commit()
+        return True
+
+    if session.session_type == "timed_challenge" and _timed_limits_hit(session, attempts):
         db.commit()
         return True
 
@@ -224,22 +243,99 @@ def _append_cat_question(db: Session, session: SessionRecord, attempts: list[Att
     domain_counts = session_domain_counts(answered)
     last_diff = last.question.difficulty if last.question else "medium"
     last_level = last.question.difficulty_level if last.question and last.question.difficulty_level else 3
-    is_correct = bool(last.is_correct)
+    domain = session.domain_filter if session.session_type == "domain_test" else None
+
     next_q = pick_next_cat_question(
         db,
         exclude,
         last_diff,
-        is_correct,
+        bool(last.is_correct),
         domain_counts,
         theta=session.theta_proxy or THETA_START,
         last_difficulty_level=last_level,
+        pool_ids=pool_ids,
+        domain=domain,
     )
     if not next_q:
         db.commit()
         return True
+
     db.add(Attempt(session_id=session.id, question_id=next_q.id))
     db.commit()
     return False
+
+
+def _is_adaptive_complete(
+    session: SessionRecord,
+    attempts: list[Attempt],
+    *,
+    cat_stream_done: bool,
+) -> bool:
+    unanswered = [a for a in attempts if a.selected_choice is None]
+    answered = [a for a in attempts if a.selected_choice]
+    if session.session_type == "mock_exam":
+        return cat_stream_done and not unanswered
+    if session.session_type == "timed_challenge":
+        return _timed_limits_hit(session, attempts) or (cat_stream_done and not unanswered)
+    return cat_stream_done and not unanswered
+
+
+def _start_adaptive_session(
+    db: Session,
+    *,
+    user_id: str,
+    session_type: str,
+    mode: str,
+    count: int,
+    domain: int | None = None,
+    topic_id: str | None = None,
+    guide_importance: str | None = None,
+    time_limit_seconds: int | None = None,
+    max_wrong_allowed: int | None = None,
+    timed_cap: int | None = None,
+) -> SessionRecord:
+    pool_ids = resolve_adaptive_pool_ids(
+        db,
+        session_type,
+        user_id,
+        domain=domain,
+        topic_id=topic_id,
+        guide_importance=guide_importance,
+    )
+    if pool_ids is not None and len(pool_ids) == 0:
+        raise HTTPException(404, "No questions available for this session")
+
+    total = adaptive_target_total(
+        session_type,
+        count,
+        pool_ids,
+        timed_cap=timed_cap,
+    )
+    if total <= 0:
+        raise HTTPException(404, "No questions available for this session")
+
+    pick_domain = domain if session_type == "domain_test" else None
+    first = pick_first_adaptive_question(db, pool_ids=pool_ids, domain=pick_domain)
+    if not first:
+        raise HTTPException(404, "No questions available")
+
+    session = SessionRecord(
+        user_id=user_id,
+        mode=mode,
+        session_type=session_type,
+        total_questions=total,
+        domain_filter=domain,
+        topic_id=topic_id,
+        guide_importance=guide_importance,
+        time_limit_seconds=time_limit_seconds,
+        max_wrong_allowed=max_wrong_allowed,
+        theta_proxy=THETA_START,
+    )
+    db.add(session)
+    db.flush()
+    db.add(Attempt(session_id=session.id, question_id=first.id))
+    db.commit()
+    return session
 
 
 def _verify_session_owner(session: SessionRecord, user_id: str) -> None:
@@ -390,103 +486,126 @@ def start_session(
     mode = req.practice_mode or settings.practice_mode
 
     if req.session_type == "mock_exam":
-        max_q = min(max(req.count, CAT_MIN_QUESTIONS), CAT_MAX_QUESTIONS)
         mode = "exam"
-        first_batch = select_questions(db, 1, cat_mode=True, difficulty="medium")
-        if not first_batch:
-            raise HTTPException(404, "No questions available")
-        session = SessionRecord(
+        session = _start_adaptive_session(
+            db,
             user_id=user_id,
+            session_type="mock_exam",
             mode=mode,
-            session_type=req.session_type,
-            total_questions=max_q,
-            domain_filter=None,
+            count=req.count,
             time_limit_seconds=CAT_TIME_SECONDS,
-            theta_proxy=THETA_START,
         )
-        db.add(session)
-        db.flush()
-        db.add(Attempt(session_id=session.id, question_id=first_batch[0].id))
-        db.commit()
         return _session_to_out(db, session)
 
-    count = min(req.count, 100)
-    questions: list[Question] = []
-
-    if req.session_type == "missed":
-        missed_ids = get_missed_question_ids(db, user_id)
-        if not missed_ids:
-            raise HTTPException(404, "No missed questions yet — keep practicing!")
-        pool = db.query(Question).filter(Question.id.in_(missed_ids)).all()
-        qmap = {q.id: q for q in pool}
-        questions = [qmap[i] for i in missed_ids if i in qmap][:count]
-    elif req.session_type == "flagged":
-        flagged_ids = get_flagged_question_ids(db, user_id)
-        if not flagged_ids:
-            raise HTTPException(404, "No flagged questions yet — flag items during practice.")
-        pool = db.query(Question).filter(Question.id.in_(flagged_ids)).all()
-        qmap = {q.id: q for q in pool}
-        questions = [qmap[i] for i in flagged_ids if i in qmap][:count]
-    elif req.session_type == "domain_test":
-        if not req.domain:
-            raise HTTPException(400, "Domain required for domain test")
-        questions = select_questions(db, count, domain=req.domain)
-    elif req.session_type == "daily":
-        questions = select_daily_questions(db, count, user_id, settings)
-    elif req.session_type == "topic_drill":
-        if not req.topic_id:
-            raise HTTPException(400, "topic_id required for topic drill")
-        questions = select_topic_drill_questions(db, req.topic_id, min(count, 20))
-        if not questions:
-            raise HTTPException(404, "No questions available for this study topic")
-    elif req.session_type == "guide_drill":
-        if not req.importance:
-            raise HTTPException(400, "importance required for guide drill (must, high, or good)")
-        questions = select_guide_drill_questions(db, req.importance, req.domain)
-        if not questions:
-            raise HTTPException(404, "No study guide questions for this domain and priority tier")
-    elif req.session_type == "timed_challenge":
+    if req.session_type == "timed_challenge":
         if req.duration_minutes is None or req.max_wrong is None:
             raise HTTPException(400, "duration_minutes and max_wrong required for timed challenge")
         minutes = min(max(req.duration_minutes, 5), 180)
         max_wrong = min(max(req.max_wrong, 0), 50)
         pool_size = min(minutes * 2, 100)
-        questions = select_daily_questions(db, pool_size, user_id, settings)
-        if not questions:
-            raise HTTPException(404, "No questions available for timed challenge")
-        session = SessionRecord(
+        session = _start_adaptive_session(
+            db,
             user_id=user_id,
+            session_type="timed_challenge",
             mode="fast",
-            session_type=req.session_type,
-            total_questions=len(questions),
-            domain_filter=None,
+            count=pool_size,
+            timed_cap=pool_size,
             time_limit_seconds=minutes * 60,
             max_wrong_allowed=max_wrong,
         )
-        db.add(session)
-        db.flush()
-        for q in questions:
-            db.add(Attempt(session_id=session.id, question_id=q.id))
-        db.commit()
         return _session_to_out(db, session)
-    else:
-        questions = select_questions(db, count)
 
-    if not questions:
-        raise HTTPException(404, "No questions available for this session")
+    if req.session_type == "domain_test":
+        if not req.domain:
+            raise HTTPException(400, "Domain required for domain test")
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="domain_test",
+            mode=mode,
+            count=min(req.count, 100),
+            domain=req.domain,
+        )
+        return _session_to_out(db, session)
 
-    session = SessionRecord(
+    if req.session_type == "topic_drill":
+        if not req.topic_id:
+            raise HTTPException(400, "topic_id required for topic drill")
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="topic_drill",
+            mode=mode,
+            count=min(req.count, 20),
+            topic_id=req.topic_id,
+        )
+        return _session_to_out(db, session)
+
+    if req.session_type == "guide_drill":
+        if not req.importance:
+            raise HTTPException(400, "importance required for guide drill (must, high, or good)")
+        pool_ids = resolve_adaptive_pool_ids(
+            db, "guide_drill", user_id,
+            domain=req.domain, guide_importance=req.importance,
+        )
+        if not pool_ids:
+            raise HTTPException(404, "No study guide questions for this domain and priority tier")
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="guide_drill",
+            mode=mode,
+            count=len(pool_ids),
+            domain=req.domain,
+            guide_importance=req.importance,
+        )
+        return _session_to_out(db, session)
+
+    if req.session_type == "missed":
+        pool_ids = resolve_adaptive_pool_ids(db, "missed", user_id)
+        if not pool_ids:
+            raise HTTPException(404, "No missed questions yet — keep practicing!")
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="missed",
+            mode=mode,
+            count=min(req.count, len(pool_ids)),
+        )
+        return _session_to_out(db, session)
+
+    if req.session_type == "flagged":
+        pool_ids = resolve_adaptive_pool_ids(db, "flagged", user_id)
+        if not pool_ids:
+            raise HTTPException(404, "No flagged questions yet — flag items during practice.")
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="flagged",
+            mode=mode,
+            count=min(req.count, len(pool_ids)),
+        )
+        return _session_to_out(db, session)
+
+    if req.session_type == "daily":
+        count = min(req.count or settings.daily_questions, 100)
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="daily",
+            mode=mode,
+            count=count,
+        )
+        return _session_to_out(db, session)
+
+    session = _start_adaptive_session(
+        db,
         user_id=user_id,
-        mode=mode,
         session_type=req.session_type,
-        total_questions=len(questions),
-        domain_filter=req.domain,
+        mode=mode,
+        count=min(req.count, 100),
+        domain=req.domain,
     )
-    db.add(session)
-    db.flush()
-    for q in questions:
-        db.add(Attempt(session_id=session.id, question_id=q.id))
-    db.commit()
     return _session_to_out(db, session)
 
 
@@ -508,7 +627,7 @@ def session_progress(session_id: int, db: Session = Depends(get_db), user_id: st
     attempts = _session_attempts(db, session_id)
     answered_list = [a for a in attempts if a.selected_choice]
     scaled, percent, _, answered = compute_cissp_scaled(attempts)
-    max_q = session.total_questions if session.session_type == "mock_exam" else len(attempts)
+    max_q = session.total_questions
     hide_scores = not session.submitted
     return SessionProgress(
         answered=answered,
@@ -533,15 +652,19 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
     answered = [a for a in attempts if a.selected_choice is not None]
     unanswered = [a for a in attempts if a.selected_choice is None]
 
-    if session.session_type == "mock_exam" and not unanswered and not session.submitted:
-        if len(answered) >= CAT_MIN_QUESTIONS:
+    if not unanswered and not session.submitted:
+        answered_count = len(answered)
+        if session.session_type == "mock_exam" and answered_count >= CAT_MIN_QUESTIONS:
             return {"complete": True, "session": _session_to_out(db, session), "cat_complete": True}
+        if session.session_type != "mock_exam" and answered_count >= session.total_questions:
+            return {"complete": True, "session": _session_to_out(db, session)}
 
-    if session.session_type == "mock_exam" and not session.submitted and session.time_limit_seconds and _time_expired(session):
+    if not session.submitted and session.time_limit_seconds and _time_expired(session):
         _grade_and_finalize(db, session)
-        return {"complete": True, "session": _session_to_out(db, session), "exam_expired": True}
+        expired_key = "exam_expired" if session.session_type == "mock_exam" else "timed_expired"
+        return {"complete": True, "session": _session_to_out(db, session), expired_key: True}
 
-    if session.session_type == "timed_challenge" and not session.submitted and _time_expired(session):
+    if session.session_type == "timed_challenge" and not session.submitted and _timed_limits_hit(session, attempts):
         _grade_and_finalize(db, session)
         return {"complete": True, "session": _session_to_out(db, session), "timed_expired": True}
 
@@ -551,26 +674,23 @@ def get_current_question(session_id: int, db: Session = Depends(get_db), user_id
     current = unanswered[0]
     time_limit = None
     seconds_remaining = None
-    if session.session_type == "mock_exam":
-        time_limit = session.time_limit_seconds or CAT_TIME_SECONDS
-        seconds_remaining = _seconds_remaining(session) if session.time_limit_seconds else CAT_TIME_SECONDS
-        if seconds_remaining is None:
-            seconds_remaining = CAT_TIME_SECONDS
-    elif session.session_type == "timed_challenge" and session.time_limit_seconds:
+    if session.time_limit_seconds:
         time_limit = session.time_limit_seconds
         seconds_remaining = _seconds_remaining(session)
+        if seconds_remaining is None:
+            seconds_remaining = session.time_limit_seconds
 
     return {
         "complete": False,
         "index": len(answered) + 1,
-        "total": session.total_questions if session.session_type == "mock_exam" else len(attempts),
+        "total": session.total_questions,
         "answered": len(answered),
         "question": _question_out(current.question).model_dump(),
         "attempt_id": current.id,
         "flagged": current.flagged,
         "time_limit_seconds": time_limit,
         "seconds_remaining": seconds_remaining,
-        "is_cat": session.session_type == "mock_exam",
+        "is_cat": True,
         "is_timed_challenge": session.session_type == "timed_challenge",
         "wrong_count": _wrong_count(attempts),
         "max_wrong_allowed": session.max_wrong_allowed,
@@ -615,7 +735,7 @@ def answer_question(
     attempt.answered_at = datetime.utcnow()
     attempt.is_correct = is_correct
 
-    if session.session_type != "mock_exam" and session.mode != "exam":
+    if session.mode != "exam":
         update_review(db, user_id, q.id, is_correct, req.confidence)
 
     hide_feedback = session.mode == "exam" and not session.submitted
@@ -624,18 +744,13 @@ def answer_question(
     attempts = _session_attempts(db, session_id)
     scaled, percent, _, answered = compute_cissp_scaled(attempts)
 
-    cat_done = False
-    if session.session_type == "mock_exam" and not session.submitted:
-        cat_done = _append_cat_question(db, session, attempts, attempt)
+    stream_done = False
+    if not session.submitted:
+        stream_done = _append_adaptive_question(db, session, attempts, attempt, user_id)
         attempts = _session_attempts(db, session_id)
 
     unanswered = [a for a in attempts if not a.selected_choice]
-    if session.session_type == "mock_exam":
-        session_complete = cat_done and not unanswered
-    elif session.session_type == "timed_challenge":
-        session_complete = _timed_limits_hit(session, attempts) or len(unanswered) == 0
-    else:
-        session_complete = len(unanswered) == 0
+    session_complete = _is_adaptive_complete(session, attempts, cat_stream_done=stream_done)
 
     if session_complete and not session.submitted and session.mode != "exam":
         _grade_and_finalize(db, session)

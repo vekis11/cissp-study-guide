@@ -7,6 +7,7 @@ interface TimedChallengePageProps {
 }
 
 const CHALLENGE_FACTS = [
+  "Adaptive question delivery — difficulty adjusts after each answer",
   "Set your own time limit and wrong-answer tolerance",
   "Session ends when time runs out or you exceed your wrong limit",
   "Scores are hidden until you finish — focus on each scenario",
@@ -23,7 +24,7 @@ export function TimedChallengePage({ onStart }: TimedChallengePageProps) {
         <PageHeader
           eyebrow="Pressure practice"
           title="Timed Challenge"
-          subtitle="Race the clock with a personal wrong-answer budget. Great for simulating exam pressure without a full CAT."
+          subtitle="Race the clock with adaptive questions and a personal wrong-answer budget — exam pressure without a full 3-hour CAT."
         />
 
         <div className="exam-facts-grid">

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.data.domains import DOMAIN_NAMES
 
 # Bloom levels 3–5: Apply, Analyze, Evaluate (ISC2 cognitive range)
@@ -15,6 +17,12 @@ DIFFICULTY_TO_BLOOM = {
     "hard": BLOOM_EVALUATE,
 }
 
+BLOOM_LABELS = {
+    BLOOM_APPLY: "Apply (Bloom Level 3)",
+    BLOOM_ANALYZE: "Analyze (Bloom Level 4)",
+    BLOOM_EVALUATE: "Evaluate (Bloom Level 5)",
+}
+
 DOMAIN_PRINCIPLES: dict[int, str] = {
     1: "Governance, risk appetite, and due care before technical action",
     2: "Protecting data through classification, handling, and lifecycle controls",
@@ -25,6 +33,18 @@ DOMAIN_PRINCIPLES: dict[int, str] = {
     7: "Incident response, continuity, and operational resilience",
     8: "Building security into the SDLC, not bolting it on at release",
 }
+
+CROSS_DOMAIN_TOPICS = ("Cloud Security", "AI Security")
+
+_CLOUD_SIGNALS = (
+    "cloud", "saas", "iaas", "paas", "aws", "azure", "gcp", "multi-cloud",
+    "kubernetes", "container", "serverless", "object storage", "csp",
+)
+_AI_SIGNALS = (
+    " ai ", "artificial intelligence", "machine learning", "ml model", "llm",
+    "generative", "large language", "model training", "prompt injection",
+    "ai feature", "ai-powered", "ai system",
+)
 
 STEM_ACTIONS = (
     "What should you do FIRST?",
@@ -40,10 +60,56 @@ STEM_ACTIONS = (
     "Which decision BEST demonstrates due care?",
 )
 
+_CISSP_ACTION_RE = re.compile(
+    r"\b(BEST|MOST appropriate|MOST effective|MOST important|MOST accurate|MOST clearly|"
+    r"FIRST|PRIMARY|NEXT|LEAST|BEST mitigates|GREATEST concern|take PRIORITY|"
+    r"should NOT|NOT be taken)\b",
+    re.I,
+)
+
 
 def domain_label(domain: int, domain_name: str | None = None) -> str:
     name = domain_name or DOMAIN_NAMES.get(domain, f"Domain {domain}")
     return f"Domain {domain}: {name}"
+
+
+def detect_cross_domains(*texts: str) -> list[str]:
+    combined = " ".join(t for t in texts if t).lower()
+    found: list[str] = []
+    if any(s in combined for s in _CLOUD_SIGNALS):
+        found.append("Cloud Security")
+    if any(s in combined for s in _AI_SIGNALS):
+        found.append("AI Security")
+    return found
+
+
+def domain_labels(
+    domain: int,
+    domain_name: str | None = None,
+    *,
+    stem: str = "",
+    source_topic: str = "",
+    tags: str = "",
+) -> str:
+    """Primary CBK domain plus optional Cloud Security / AI Security cross-tags."""
+    primary = domain_label(domain, domain_name)
+    cross = detect_cross_domains(stem, source_topic, tags)
+    if not cross:
+        return primary
+    return f"{primary}; {'; '.join(cross)}"
+
+
+def bloom_label(difficulty: str | None = None, difficulty_level: int | None = None) -> str:
+    level = difficulty_level or DIFFICULTY_TO_BLOOM.get(difficulty or "medium", BLOOM_ANALYZE)
+    return BLOOM_LABELS.get(level, BLOOM_LABELS[BLOOM_ANALYZE])
+
+
+def key_principle(domain: int, source_topic: str = "") -> str:
+    base = DOMAIN_PRINCIPLES.get(domain, "Manager-level security judgment")
+    topic = source_topic.strip()
+    if topic:
+        return f"{base} — applied to {topic}."
+    return f"{base}."
 
 
 def whats_being_tested(
@@ -67,11 +133,16 @@ def whats_being_tested(
         "NEXT": f"Whether you can pick the NEXT step on {topic} after earlier triage is already done.",
         "PRIMARY": f"Whether you can identify the PRIMARY concern on {topic} — people, legal duty, or governance.",
         "MULTI": f"Whether you can select every required managerial action for {topic} — not just one good step.",
+        "NOT": f"Whether you can spot what should NOT drive a professional decision on {topic}.",
     }
     lead = action_leads.get(action or "", f"Whether you can apply sound manager judgment on {topic}.")
     return f"{lead} Core principle: {base}."
 
 
 def principle_tested(question_domain: int, source_topic: str) -> str:
-    """Alias — kept for callers; use whats_being_tested when action is known."""
-    return whats_being_tested(question_domain, source_topic)
+    """Alias — kept for callers; use key_principle when action is known."""
+    return key_principle(question_domain, source_topic)
+
+
+def stem_has_cissp_action(stem: str) -> bool:
+    return bool(_CISSP_ACTION_RE.search(stem))

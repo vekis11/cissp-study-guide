@@ -252,9 +252,12 @@ export default function App() {
             <p>
               Performance in this app does not guarantee passing the actual CISSP exam. The real exam uses proprietary adaptive scoring not replicated here.
             </p>
-            <h3>CAT Simulation</h3>
+            <h3>Adaptive practice</h3>
             <p>
-              Mock exams follow the April 2024 outline: 125–150 questions, 3-hour limit, domain-weighted adaptive difficulty, and deferred grading. This is a study simulation — not the official Pearson VUE engine.
+              Every session — daily practice, study guide drills, domain tests, and mock exams — uses
+              adaptive question delivery. Difficulty adjusts as you answer; mock exams follow the
+              125–150 question / 3-hour CISSP format with deferred grading. This is a study simulation
+              — not the official Pearson VUE engine.
             </p>
             <h3>Acceptable Use</h3>
             <p>

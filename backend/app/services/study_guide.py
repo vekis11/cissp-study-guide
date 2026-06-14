@@ -21,9 +21,8 @@ IMPORTANCE_STUDY_HINTS = {
     "high": "Study after must-know items — frequently tested supporting ideas.",
     "good": "Review when time allows — depth for tougher curve-ball questions.",
 }
-# Study-guide drills: knowledge checks first, fewer scenarios per topic
-KNOWLEDGE_PER_TOPIC_IN_GUIDE = 1
-SCENARIOS_PER_TOPIC_IN_GUIDE = 1
+# Study-guide drills: direct CISSP-format questions only (no scenario bank)
+SCENARIOS_PER_TOPIC_IN_GUIDE = 0
 
 
 def _catalog_sections() -> list[dict]:
@@ -54,16 +53,20 @@ def _scenario_ids_for_topic(db: Session, topic_id: str) -> set[str]:
     return ids
 
 
-def _knowledge_ids_for_topic(db: Session, topic_id: str) -> set[str]:
+def _study_guide_ids_for_topic(db: Session, topic_id: str) -> set[str]:
     rows = (
         db.query(Question.id)
         .filter(
-            Question.tags.contains("knowledge-check"),
+            Question.tags.contains("study-guide"),
             Question.tags.contains(f"topic:{topic_id}"),
         )
         .all()
     )
     return {r[0] for r in rows}
+
+
+def _knowledge_ids_for_topic(db: Session, topic_id: str) -> set[str]:
+    return _study_guide_ids_for_topic(db, topic_id)
 
 
 def count_scenario_questions_for_topic(db: Session, topic_id: str) -> int:
@@ -74,22 +77,29 @@ def count_knowledge_questions_for_topic(db: Session, topic_id: str) -> int:
     return len(_knowledge_ids_for_topic(db, topic_id))
 
 
-def _knowledge_questions_for_topic(
+def _study_guide_questions_for_topic(
     db: Session,
     topic_id: str,
-    *,
-    limit: int = KNOWLEDGE_PER_TOPIC_IN_GUIDE,
 ) -> list[Question]:
     pool = (
         db.query(Question)
         .filter(
-            Question.tags.contains("knowledge-check"),
+            Question.tags.contains("study-guide"),
             Question.tags.contains(f"topic:{topic_id}"),
         )
         .all()
     )
     random.shuffle(pool)
-    return pool[:limit]
+    return pool
+
+
+def _knowledge_questions_for_topic(
+    db: Session,
+    topic_id: str,
+    *,
+    limit: int = 999,
+) -> list[Question]:
+    return _study_guide_questions_for_topic(db, topic_id)[:limit]
 
 
 def _scenario_questions_for_topic(
@@ -121,22 +131,8 @@ def _guide_questions_for_topic(
     db: Session,
     topic_id: str,
 ) -> list[Question]:
-    """Knowledge-check heavy mix for study-guide drills."""
-    pool: list[Question] = []
-    seen: set[str] = set()
-    for q in _knowledge_questions_for_topic(
-        db, topic_id, limit=KNOWLEDGE_PER_TOPIC_IN_GUIDE
-    ):
-        if q.id not in seen:
-            pool.append(q)
-            seen.add(q.id)
-    for q in _scenario_questions_for_topic(
-        db, topic_id, limit=SCENARIOS_PER_TOPIC_IN_GUIDE
-    ):
-        if q.id not in seen:
-            pool.append(q)
-            seen.add(q.id)
-    return pool
+    """All direct-format study guide questions for one cheat-sheet topic."""
+    return _study_guide_questions_for_topic(db, topic_id)
 
 
 def _tier_session_question_count(db: Session, topic_ids: list[str]) -> int:
@@ -255,7 +251,7 @@ def build_quiz_groups(db: Session, user_id: str | None = None) -> dict:
                 "question_count": progress["question_count"],
                 "answered_count": progress["answered_count"],
                 "remaining_count": progress["remaining_count"],
-                "knowledge_per_topic": KNOWLEDGE_PER_TOPIC_IN_GUIDE,
+                "knowledge_per_topic": None,
                 "scenarios_per_topic": SCENARIOS_PER_TOPIC_IN_GUIDE,
                 "topic_ids": topic_ids,
                 "topic_titles": [s["title"] for s in sections],
@@ -283,7 +279,7 @@ def build_quiz_groups(db: Session, user_id: str | None = None) -> dict:
             {
                 **global_tiers[imp],
                 "study_hint": IMPORTANCE_STUDY_HINTS[imp],
-                "knowledge_per_topic": KNOWLEDGE_PER_TOPIC_IN_GUIDE,
+                "knowledge_per_topic": None,
                 "scenarios_per_topic": SCENARIOS_PER_TOPIC_IN_GUIDE,
             }
         )
@@ -295,7 +291,8 @@ def build_study_guide_payload(db: Session, user_id: str | None = None) -> dict:
     coverage = build_topic_coverage(db)
     total = len(coverage)
     tested = sum(1 for c in coverage if c["fully_tested"])
-    knowledge_bank = db.query(Question).filter(Question.tags.contains("knowledge-check")).count()
+    study_guide_bank = db.query(Question).filter(Question.tags.contains("study-guide")).count()
+    knowledge_bank = study_guide_bank
     scenario_bank = db.query(Question).filter(Question.tags.contains("scenario")).count()
     return {
         "catalog": CHEAT_SHEET,
@@ -306,24 +303,24 @@ def build_study_guide_payload(db: Session, user_id: str | None = None) -> dict:
             "fully_tested": tested,
             "coverage_percent": round(100 * tested / total, 1) if total else 0,
             "knowledge_questions": knowledge_bank,
+            "study_guide_questions": study_guide_bank,
             "scenario_bank": scenario_bank,
-            "knowledge_per_topic": KNOWLEDGE_PER_TOPIC_IN_GUIDE,
             "scenarios_per_topic": SCENARIOS_PER_TOPIC_IN_GUIDE,
         },
     }
 
 
+def topic_drill_pool_ids(db: Session, topic_id: str) -> set[str]:
+    return _study_guide_ids_for_topic(db, topic_id)
+
+
+def guide_drill_pool_ids(db: Session, importance: str, domain: int | None = None) -> set[str]:
+    return {q.id for q in select_guide_drill_questions(db, importance, domain)}
+
+
 def select_topic_drill_questions(db: Session, topic_id: str, count: int = 10) -> list[Question]:
-    """Knowledge-check heavy drill for a single cheat-sheet topic."""
-    knowledge = _knowledge_questions_for_topic(db, topic_id, limit=max(1, count // 2 + 1))
-    scenario_limit = max(1, count - len(knowledge))
-    scenarios = _scenario_questions_for_topic(db, topic_id, limit=scenario_limit)
-    pool: list[Question] = []
-    seen: set[str] = set()
-    for q in knowledge + scenarios:
-        if q.id not in seen:
-            pool.append(q)
-            seen.add(q.id)
+    """Direct-format study guide questions for a single cheat-sheet topic."""
+    pool = _study_guide_questions_for_topic(db, topic_id)
     random.shuffle(pool)
     return pool[:count]
 
@@ -344,7 +341,7 @@ def select_guide_drill_questions(
     importance: str,
     domain: int | None = None,
 ) -> list[Question]:
-    """Knowledge-check weighted quiz for a domain × importance tier (or all domains)."""
+    """Direct CISSP-format study guide quiz for a domain × importance tier."""
     if importance not in IMPORTANCE_LABELS:
         return []
 

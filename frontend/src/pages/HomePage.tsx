@@ -67,8 +67,9 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
               Think like a <span className="text-gradient">security leader</span>
             </h1>
             <p className="home-lead">
-              Manager-style scenarios across all 8 domains — daily drills, adaptive mock CAT exams,
-              cheat-sheet topic quizzes, and readiness analytics.
+              Manager-style scenarios across all 8 domains — every session uses adaptive question
+              delivery, from daily drills and study-guide quizzes to full mock CAT exams and readiness
+              analytics.
             </p>
           </div>
 
@@ -107,7 +108,7 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
             </div>
             <h2>Daily practice</h2>
             <p className="sub">
-              Unseen-first selection · weak-domain bias · {modeLabel} mode · ~{settings.daily_minutes}{" "}
+              Adaptive difficulty · one question at a time · {modeLabel} mode · ~{settings.daily_minutes}{" "}
               min target
             </p>
           </div>
@@ -162,7 +163,7 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
       <section className="home-section">
         <div className="section-heading">
           <h2>Study modes</h2>
-          <p>Pick your path — every mode uses the same manager-first question bank.</p>
+          <p>Pick your path — every mode adapts difficulty as you answer.</p>
         </div>
         <div className="bento-grid">
           <FeatureCard
@@ -176,7 +177,7 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
           />
           <FeatureCard
             title="Timed Challenge"
-            description="Custom minutes · wrong-answer limit · hidden live score"
+            description="Adaptive questions · custom minutes · wrong-answer limit"
             icon={<IconDaily size={22} />}
             variant="accent"
             onClick={() => onNavigate("timed")}
@@ -190,7 +191,7 @@ export function HomePage({ settings, onNavigate, onStartDaily }: HomePageProps) 
           />
           <FeatureCard
             title="Study Guide"
-            description="70 cheat-sheet topics with scenario drills"
+            description="70 cheat-sheet topics · adaptive scenario drills"
             icon={<IconBook size={22} />}
             variant="accent"
             size="wide"
