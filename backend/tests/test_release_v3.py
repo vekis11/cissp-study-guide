@@ -76,6 +76,57 @@ def test_manager_feedback_shape():
     assert "contain" in body2.lower()
 
 
+def test_explanation_matches_sample_style_worm():
+    q = SimpleNamespace(
+        stem="Which of the following is a major difference between a Worm and a Trojan horse?",
+        correct_choice="D",
+        choice_a="Worms spread via e-mail, while Trojan horses do not.",
+        choice_b="Worms are a form of malicious code, whereas Trojan horses are not.",
+        choice_c="Both are the same.",
+        choice_d="Worms self-replicate, while Trojan horses do not.",
+        explanation="Worms self-replicate; Trojans do not.",
+        source_topic="Malware",
+        domain=8,
+        domain_name="Software Development Security",
+        tags="study-guide",
+    )
+    body = next(
+        s for s in build_manager_feedback(q)["explanation_sections"] if s["key"] == "correct_answer"
+    )["body"]
+    assert "Correct answer: D" in body
+    assert "self-replicat" in body.lower()
+    assert "trojan" in body.lower()
+    assert "disguis" in body.lower() or "guise" in body.lower()
+    assert len(body) > 200
+
+
+def test_explanation_matches_sample_style_testing_schedule():
+    q = SimpleNamespace(
+        stem=(
+            "Which one of the following factors should NOT be taken into consideration "
+            "when planning a security testing schedule for a particular system?"
+        ),
+        correct_choice="C",
+        choice_a="Sensitivity of the information stored on the system",
+        choice_b="Desirability of the system to attackers",
+        choice_c="Desire to experiment with new testing tools",
+        choice_d="Difficulty of performing the test",
+        explanation="Testing schedules should reflect risk — not tool experimentation.",
+        source_topic="Security Assessment and Testing",
+        domain=6,
+        domain_name="Security Assessment & Testing",
+        tags="study-guide",
+    )
+    body = next(
+        s for s in build_manager_feedback(q)["explanation_sections"] if s["key"] == "correct_answer"
+    )["body"]
+    assert "Correct answer: C" in body
+    assert "sensitivity" in body.lower()
+    assert "experiment" in body.lower() or "tools" in body.lower()
+    assert "attack" in body.lower() or "desirability" in body.lower()
+    assert len(body) > 180
+
+
 def test_choice_lengths_not_obvious():
     qs = build_diverse_bank()
     single = [q for q in qs if len(q["correct_choice"]) == 1]

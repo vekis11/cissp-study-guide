@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.services.answer_key import is_multi_select, parse_choices
+from app.services.cissp_concept_explanations import lookup_concept_explanation
 from app.services.cissp_exam_rules import (
     bloom_label,
     domain_labels,
@@ -428,16 +429,32 @@ def _distractor_inferior(question: Question, letter: str, action: str | None) ->
     )
 
 
+def _why_correct_prose(question: Question, letters: list[str], action: str | None) -> str:
+    """Plain-language rationale for the correct choice — CBK-grounded, like sample exam keys."""
+    correct_texts = [_choice_text(question, letter).strip() for letter in letters]
+    combined_correct = "; ".join(correct_texts)
+    core = _strip_legacy_tips(question.explanation or "")
+
+    return lookup_concept_explanation(
+        stem=question.stem or "",
+        correct_text=combined_correct,
+        source_topic=question.source_topic or "",
+        domain=int(getattr(question, "domain", 1) or 1),
+        action=action,
+        stored_explanation=core,
+    )
+
+
 def _best_answer_prose(question: Question, letters: list[str], action: str | None) -> str:
     thinking = _how_to_think(question, action)
-    core = _core_explanation(question)
+    rationale = _why_correct_prose(question, letters, action)
     label = " and ".join(letters)
     if is_multi_select(question.correct_choice) and len(letters) > 1:
         return (
             f"{thinking}\n\nCorrect answer: {label}\n"
-            f"Both options are required. {core}"
+            f"{rationale}"
         )
-    return f"{thinking}\n\nCorrect answer: {label}\n{core}"
+    return f"{thinking}\n\nCorrect answer: {label}\n{rationale}"
 
 
 def _distractors_reference(question: Question, action: str | None) -> str:
