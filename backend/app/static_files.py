@@ -56,7 +56,10 @@ def mount_frontend(app: FastAPI) -> bool:
     async def spa_fallback(full_path: str):
         if full_path.startswith("api"):
             raise HTTPException(404)
-        target = (dist / full_path).resolve()
+        req_path = Path(full_path)
+        if req_path.is_absolute() or ".." in req_path.parts:
+            raise HTTPException(404)
+        target = (dist / req_path).resolve()
         try:
             target.relative_to(dist)
         except ValueError:
