@@ -87,6 +87,8 @@ def _ensure_columns(db: Session) -> None:
     _add_column_if_missing(db, "sessions", "max_wrong_allowed", "INTEGER")
     _add_column_if_missing(db, "sessions", "theta_proxy", "FLOAT")
     _add_column_if_missing(db, "sessions", "pass_likelihood", "FLOAT")
+    _add_column_if_missing(db, "sessions", "topic_id", "VARCHAR(64)")
+    _add_column_if_missing(db, "sessions", "guide_importance", "VARCHAR(16)")
     _add_column_if_missing(db, "questions", "difficulty_level", "INTEGER")
     _add_column_if_missing(db, "questions", "topic_id", "VARCHAR(64)")
     _add_column_if_missing(db, "questions", "reference", "VARCHAR(256)")
@@ -104,7 +106,7 @@ def needs_reseed(db: Session) -> bool:
     count = db.query(Question).count()
     if count < MIN_QUESTION_COUNT:
         return True
-    sample = db.query(Question).filter(Question.tags.contains("bank-v12")).first()
+    sample = db.query(Question).filter(Question.tags.contains("bank-v15")).first()
     if not sample:
         return True
     return False

@@ -34,22 +34,46 @@ def test_manager_feedback_shape():
     main_titles = [s["title"] for s in fb["explanation_sections"]]
     ref_titles = [s["title"] for s in fb["reference_sections"]]
     assert "What's being tested" in main_titles
+    assert "Manager hint" not in main_titles
     assert "Principle tested" not in main_titles
-    assert "Why A isn't it" in main_titles
-    assert "Why B is BEST" in main_titles
-    assert "Why the others fall short" in main_titles
-    assert "Domain" in ref_titles
-    assert "Manager view" in ref_titles
+    assert "Why A isn't it" not in main_titles
+    assert "Why the correct answer is BEST" in main_titles
+    assert "Why each distractor is inferior" not in main_titles
+    assert "Why each distractor is inferior" in ref_titles
+    assert "Domain(s)" in ref_titles
+    assert "Key CISSP principle tested" in ref_titles
+    assert "Cognitive level" in ref_titles
     assert "Easy mistake" in ref_titles
-    distractors = next(s for s in fb["explanation_sections"] if s["key"] == "distractors")
-    assert "Where it fits:" in distractors["body"]
-    assert "Easy to pick because:" in distractors["body"]
-    assert "Why not here:" in distractors["body"]
-    tested = next(s for s in fb["explanation_sections"] if s["key"] == "context")
-    assert "Core principle:" in tested["body"]
+    correct = next(s for s in fb["explanation_sections"] if s["key"] == "correct_answer")
+    assert not correct["body"].startswith("Correct answer:")
+    assert "Correct answer: B" in correct["body"]
+    assert "first managerial step" in correct["body"].lower() or "vendor" in correct["body"].lower()
     assert fb["trap"]
     assert len(fb["wrong_choice_notes"]) == 3
     assert "Why the other options" not in fb["explanation"]
+
+    q2 = SimpleNamespace(
+        stem=(
+            "An organization confirms active ransomware on several workstations. "
+            "Which step should generally come FIRST in the response?"
+        ),
+        correct_choice="A",
+        choice_a="Contain the spread to limit further impact",
+        choice_b="Publish a full public breach notice",
+        choice_c="Rebuild every system in the environment",
+        choice_d="Contact law enforcement before any internal triage",
+        explanation="Containment limits damage while scope is understood.",
+        source_topic="Incident response",
+        domain=7,
+        domain_name="Security Operations",
+        tags="scenario",
+    )
+    fb2 = build_manager_feedback(q2, selected_choice="B", is_correct=False)
+    body1 = next(s for s in fb["explanation_sections"] if s["key"] == "correct_answer")["body"]
+    body2 = next(s for s in fb2["explanation_sections"] if s["key"] == "correct_answer")["body"]
+    assert body1 != body2
+    assert "organization confirms active ransomware" not in body2.lower()
+    assert "contain" in body2.lower()
 
 
 def test_choice_lengths_not_obvious():
@@ -70,6 +94,47 @@ def test_choice_lengths_not_obvious():
         assert not is_length_giveaway(correct, wrong)
     rate = longest_is_correct / len(single)
     assert rate < 0.45, f"Correct answer longest in {rate:.0%} of questions"
+
+
+def test_cloud_ai_and_direct_exam_scenarios():
+    from app.services.cissp_exam_rules import stem_has_cissp_action
+
+    qs = build_diverse_bank()
+    cloud_ai = [q for q in qs if "cloud-ai-exam" in q.get("tags", "")]
+    direct = [q for q in qs if "direct-exam" in q.get("tags", "") and "study-guide" not in q.get("tags", "")]
+    assert len(cloud_ai) >= 10
+    assert len(direct) >= 100
+    for q in cloud_ai + direct[:20]:
+        assert stem_has_cissp_action(q["stem"])
+        assert len(q["stem"]) >= 80
+
+
+def test_all_sessions_start_adaptive():
+    from app.database import SessionLocal
+    from app.main import _start_adaptive_session
+    from app.models import Attempt, SessionRecord
+    from app.seed import seed_database
+    from app.services.irt_cat import THETA_START
+
+    seed_database(force=True)
+    db = SessionLocal()
+    try:
+        user_id = "adaptive-test-user"
+        session = _start_adaptive_session(
+            db,
+            user_id=user_id,
+            session_type="daily",
+            mode="newbie",
+            count=5,
+        )
+        assert session.theta_proxy == THETA_START
+        assert session.total_questions == 5
+        attempts = db.query(Attempt).filter(Attempt.session_id == session.id).all()
+        assert len(attempts) == 1
+        row = db.query(SessionRecord).filter(SessionRecord.id == session.id).first()
+        assert row is not None
+    finally:
+        db.close()
 
 
 def test_cat_2024_constants():

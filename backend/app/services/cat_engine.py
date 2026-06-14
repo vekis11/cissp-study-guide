@@ -222,8 +222,13 @@ def select_questions(
     difficulty_level: int | None = None,
     cat_mode: bool = False,
     domain_counts: dict[int, int] | None = None,
+    pool_ids: set[str] | None = None,
 ) -> list[Question]:
     query = db.query(Question)
+    if pool_ids is not None:
+        if not pool_ids:
+            return []
+        query = query.filter(Question.id.in_(pool_ids))
     if domain:
         query = query.filter(Question.domain == domain)
     if exclude_ids:
@@ -275,32 +280,47 @@ def pick_next_cat_question(
     domain_counts: dict[int, int],
     theta: float = THETA_START,
     last_difficulty_level: int = 3,
+    pool_ids: set[str] | None = None,
+    domain: int | None = None,
 ) -> Question | None:
     new_theta = update_theta(theta, is_correct, last_difficulty_level)
     target_level = target_difficulty_level(new_theta)
     next_diff = next_cat_difficulty(last_difficulty, is_correct)
+    use_cat = domain is None
     batch = select_questions(
         db,
         1,
+        domain=domain,
         exclude_ids=exclude_ids,
         difficulty=next_diff,
         difficulty_level=target_level,
-        cat_mode=True,
+        cat_mode=use_cat,
         domain_counts=domain_counts,
+        pool_ids=pool_ids,
     )
     if batch:
         return batch[0]
     batch = select_questions(
         db,
         1,
+        domain=domain,
         exclude_ids=exclude_ids,
         difficulty_level=target_level,
-        cat_mode=True,
+        cat_mode=use_cat,
         domain_counts=domain_counts,
+        pool_ids=pool_ids,
     )
     if batch:
         return batch[0]
-    batch = select_questions(db, 1, exclude_ids=exclude_ids, cat_mode=True, domain_counts=domain_counts)
+    batch = select_questions(
+        db,
+        1,
+        domain=domain,
+        exclude_ids=exclude_ids,
+        cat_mode=use_cat,
+        domain_counts=domain_counts,
+        pool_ids=pool_ids,
+    )
     return batch[0] if batch else None
 
 
@@ -400,3 +420,91 @@ def get_flagged_question_ids(db: Session, user_id: str) -> list[str]:
             seen.add(attempt.question_id)
             ordered.append(attempt.question_id)
     return ordered
+
+
+def resolve_adaptive_pool_ids(
+    db: Session,
+    session_type: str,
+    user_id: str,
+    *,
+    domain: int | None = None,
+    topic_id: str | None = None,
+    guide_importance: str | None = None,
+) -> set[str] | None:
+    """Return allowed question ids for this session, or None for full bank."""
+    if session_type == "missed":
+        return set(get_missed_question_ids(db, user_id))
+    if session_type == "flagged":
+        return set(get_flagged_question_ids(db, user_id))
+    if session_type == "domain_test" and domain:
+        rows = db.query(Question.id).filter(Question.domain == domain).all()
+        return {r[0] for r in rows}
+    if session_type == "topic_drill" and topic_id:
+        from app.services.study_guide import topic_drill_pool_ids
+
+        return topic_drill_pool_ids(db, topic_id)
+    if session_type == "guide_drill" and guide_importance:
+        from app.services.study_guide import guide_drill_pool_ids
+
+        return guide_drill_pool_ids(db, guide_importance, domain)
+    return None
+
+
+def adaptive_target_total(
+    session_type: str,
+    requested: int,
+    pool_ids: set[str] | None,
+    *,
+    timed_cap: int | None = None,
+) -> int:
+    """Session question cap for adaptive delivery."""
+    if session_type == "mock_exam":
+        return min(max(requested, CAT_MIN_QUESTIONS), CAT_MAX_QUESTIONS)
+    if session_type == "timed_challenge":
+        return timed_cap or min(requested * 2, 100)
+    if pool_ids is not None:
+        pool_size = len(pool_ids)
+        if pool_size == 0:
+            return 0
+        return min(requested, pool_size)
+    return min(requested, 100)
+
+
+def pick_first_adaptive_question(
+    db: Session,
+    *,
+    pool_ids: set[str] | None = None,
+    domain: int | None = None,
+) -> Question | None:
+    batch = select_questions(
+        db,
+        1,
+        domain=domain,
+        difficulty="medium",
+        cat_mode=domain is None,
+        pool_ids=pool_ids,
+    )
+    if batch:
+        return batch[0]
+    batch = select_questions(db, 1, domain=domain, cat_mode=domain is None, pool_ids=pool_ids)
+    return batch[0] if batch else None
+
+
+def should_stop_adaptive_session(
+    session_type: str,
+    answered: int,
+    correct: int,
+    total_questions: int,
+    theta: float,
+) -> bool:
+    if session_type == "mock_exam":
+        if answered >= CAT_MAX_QUESTIONS:
+            return True
+        if answered >= CAT_MIN_QUESTIONS and (
+            should_stop_cat(answered, correct) or should_stop_theta(answered, theta)
+        ):
+            return True
+        return False
+    if session_type == "timed_challenge":
+        return False
+    return answered >= total_questions

@@ -71,6 +71,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
   const [confidence, setConfidence] = useState(3);
 
   const [passLikelihood, setPassLikelihood] = useState<number | null>(null);
+  const [isAdaptive, setIsAdaptive] = useState(true);
 
   const questionLoadedAt = useRef<number>(Date.now());
   const sessionStartedAt = useRef<number>(Date.now());
@@ -176,6 +177,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
       setFlagged(data.flagged ?? false);
 
       setIsTimedChallenge(data.is_timed_challenge ?? false);
+      setIsAdaptive(data.is_cat ?? true);
 
       setWrongCount(data.wrong_count ?? 0);
 
@@ -340,13 +342,21 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
       }
 
-      if (isExam) {
+      if (isExam || isFast) {
 
         if (res.session_complete) {
 
-          setExamReadyToSubmit(true);
+          if (isExam) {
 
-          setQuestion(null);
+            setExamReadyToSubmit(true);
+
+            setQuestion(null);
+
+          } else {
+
+            await finishWithReview();
+
+          }
 
         } else if (isFast) {
 
@@ -661,7 +671,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
             </span>
 
-            {isExam && <span className="practice-cat-badge">CAT adaptive</span>}
+            {isAdaptive && <span className="practice-cat-badge">Adaptive</span>}
 
             {isTimedChallenge && <span className="practice-cat-badge">Timed challenge</span>}
 
@@ -679,7 +689,7 @@ export function PracticeSession({ sessionId, mode, onComplete, onExit }: Practic
 
             )}
 
-            {isExam && passLikelihood != null && (
+            {isAdaptive && passLikelihood != null && !isTimedChallenge && (
 
               <span className="practice-pass-est">Est. pass {passLikelihood.toFixed(0)}%</span>
 

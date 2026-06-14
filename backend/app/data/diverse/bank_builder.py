@@ -8,7 +8,8 @@ from app.data.cheat_sheet.topic_mapping import TOPIC_SCENARIO_MAP
 from app.data.domains import DOMAIN_NAMES, DOMAIN_WEIGHTS
 from app.data.cheat_sheet.knowledge_builder import build_knowledge_questions
 from app.data.diverse.choice_balance import balance_choice_set, is_length_giveaway
-from app.data.diverse.knowledge_stems import knowledge_stem
+from app.data.diverse.cloud_ai_exam_items import build_cloud_ai_exam_questions
+from app.data.diverse.direct_exam_questions import build_direct_exam_questions
 from app.data.diverse.multi_select import build_multi_question
 from app.data.diverse.stem_formats import format_stem, shuffle_choices
 from app.data.diverse.topic_specs import TOPIC_SPECS
@@ -16,8 +17,7 @@ from app.data.scenario_templates_premium import PREMIUM_QUESTIONS
 
 from app.services.cissp_exam_rules import DIFFICULTY_TO_BLOOM
 
-BANK_TAG = "bank-v12"
-KNOWLEDGE_SLOT = 7
+BANK_TAG = "bank-v15"
 FORMATS_PER_KERNEL = 8
 MIN_BANK_SIZE = 800
 
@@ -74,12 +74,8 @@ def _kernel_questions(spec: dict, kernel_idx: int) -> list[dict]:
         balanced_correct, balanced_wrong = balance_choice_set(
             spec["correct"], spec["wrong"], domain, seed
         )
-        if slot == KNOWLEDGE_SLOT:
-            stem = knowledge_stem(topic, seed)
-            q_type = "knowledge-check"
-        else:
-            stem = format_stem(slot, narrative, industry, topic)
-            q_type = "scenario"
+        stem = format_stem(slot, narrative, industry, topic)
+        q_type = "scenario"
         ca, cb, cc, cd, correct = shuffle_choices(
             balanced_correct,
             balanced_wrong,
@@ -177,6 +173,26 @@ def build_diverse_bank() -> list[dict]:
 
     for idx, spec in enumerate(TOPIC_SPECS):
         questions.extend(_kernel_questions(spec, idx))
+
+    for dq in build_direct_exam_questions():
+        dq = dict(dq)
+        tags = dq.get("tags", "")
+        if BANK_TAG not in tags:
+            dq["tags"] = f"{tags},{BANK_TAG}".strip(",")
+        if not dq.get("reference"):
+            dq["reference"] = DOMAIN_REFERENCES.get(dq["domain"], "ISC2 CBK")
+        dq["difficulty_level"] = DIFFICULTY_TO_LEVEL.get(dq.get("difficulty", "medium"), 3)
+        questions.append(dq)
+
+    for cq in build_cloud_ai_exam_questions():
+        cq = dict(cq)
+        tags = cq.get("tags", "")
+        if BANK_TAG not in tags:
+            cq["tags"] = f"{tags},{BANK_TAG}".strip(",")
+        if not cq.get("reference"):
+            cq["reference"] = DOMAIN_REFERENCES.get(cq["domain"], "ISC2 CBK")
+        cq["difficulty_level"] = DIFFICULTY_TO_LEVEL.get(cq.get("difficulty", "medium"), 3)
+        questions.append(cq)
 
     for kq in build_knowledge_questions():
         kq = dict(kq)

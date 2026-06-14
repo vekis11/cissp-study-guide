@@ -41,6 +41,8 @@ class SessionRecord(Base):
     total_questions: Mapped[int] = mapped_column(Integer, default=0)
     correct_count: Mapped[int] = mapped_column(Integer, default=0)
     domain_filter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    topic_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    guide_importance: Mapped[str | None] = mapped_column(String(16), nullable=True)
     time_limit_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_wrong_allowed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     theta_proxy: Mapped[float | None] = mapped_column(Float, nullable=True)

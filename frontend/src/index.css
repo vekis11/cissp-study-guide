@@ -566,6 +566,7 @@ body {
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--text);
+  white-space: pre-line;
 }
 
 .explanation-block--your-pick {
@@ -576,6 +577,15 @@ body {
 .explanation-block--answer {
   border-color: color-mix(in srgb, var(--success) 35%, var(--border));
   background: color-mix(in srgb, var(--success) 6%, transparent);
+}
+
+.explanation-block--hint {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.explanation-block--hint .explanation-block-title {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
 }
 
 .explanation-block--success {
