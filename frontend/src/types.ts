@@ -253,6 +253,7 @@ export interface CurrentQuestion {
   flagged?: boolean;
   time_limit_seconds?: number | null;
   seconds_remaining?: number | null;
+  is_cat?: boolean;
   is_timed_challenge?: boolean;
   wrong_count?: number;
   max_wrong_allowed?: number | null;
