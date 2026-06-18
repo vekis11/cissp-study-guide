@@ -16,7 +16,7 @@ def _file_route(path: Path):
 
 def mount_frontend(app: FastAPI) -> bool:
     """Serve built React PWA from FastAPI — one link for phone + PC install."""
-    dist = Path(FRONTEND_DIST)
+    dist = Path(FRONTEND_DIST).resolve()
     if not SERVE_STATIC or not dist.is_dir():
         return False
 
@@ -56,7 +56,14 @@ def mount_frontend(app: FastAPI) -> bool:
     async def spa_fallback(full_path: str):
         if full_path.startswith("api"):
             raise HTTPException(404)
-        target = dist / full_path
+        req_path = Path(full_path)
+        if req_path.is_absolute() or ".." in req_path.parts:
+            raise HTTPException(404)
+        target = (dist / req_path).resolve()
+        try:
+            target.relative_to(dist)
+        except ValueError:
+            raise HTTPException(404)
         if target.is_file():
             return FileResponse(target)
         return FileResponse(index_html)
