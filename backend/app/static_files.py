@@ -57,6 +57,7 @@ def mount_frontend(app: FastAPI) -> bool:
         if full_path.startswith("api"):
             raise HTTPException(404)
         target = dist / full_path
+# VKT autofix: Review backend/app/static_files.py:60 in vekis11/cissp-study-guide. Remove or isolate the unsafe pattern (py/path-injection) and add a regression test or Semgrep/CodeQL rule so it cannot return.
         if target.is_file():
             return FileResponse(target)
         return FileResponse(index_html)
